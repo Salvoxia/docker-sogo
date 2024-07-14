@@ -1,48 +1,54 @@
-# Base image: https://hub.docker.com/r/phusion/baseimage/tags
-FROM phusion/baseimage:jammy-1.0.2
+FROM ubuntu:24.04
+ENV SOGO_VERSION=5.10.0
+ENV SOPE_VERSION=${SOGO_VERSION}
 
-# SOGo supported distributions: https://packages.sogo.nu/nightly/5/ubuntu/dists/
-RUN curl -L https://keys.openpgp.org/vks/v1/by-fingerprint/74FFC6D72B925A34B5D356BDF8A27B36A6E2EAE9 | gpg --dearmor > /usr/share/keyrings/sogo-archive-keyring.gpg
-RUN echo "deb [signed-by=/usr/share/keyrings/sogo-archive-keyring.gpg] http://packages.inverse.ca/SOGo/nightly/5/ubuntu jammy jammy" > /etc/apt/sources.list.d/sogo.list
+LABEL maintainer="Salvoxia <salvoxia@blindfish.info>"
+ENV DEBIAN_FRONTEND=noninteractive
+ENV USEWATCHDOG=YES
+ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 
-# Install Apache, SOGo from repository
-RUN apt-get update && \
-    apt-get -o Dpkg::Options::="--force-confold" upgrade -q -y --force-yes && \
-    apt-get install -y --no-install-recommends apache2 sogo sogo-activesync memcached mariadb-client && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install build dependencies, download SOGo and SOPE source, compile, install and remove dependencies in a single RUN
+# command to prevent the image from bloat up due to too many layers
+RUN apt update && \
+    apt install -y --no-install-recommends gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev gettext-base apache2 libmysqlclient21 && \
+    echo "Downloading SOGo & SOPE" && \
+    curl -L https://github.com/Alinto/sogo/archive/refs/tags/SOGo-${SOGO_VERSION}.zip -o /tmp/sogo.zip && \
+    curl -L https://github.com/Alinto/sope/archive/refs/tags/SOPE-${SOPE_VERSION}.zip -o /tmp/sope.zip && \
+    unzip /tmp/sogo.zip -d /tmp/SOGo && \
+    unzip /tmp/sope.zip -d /tmp/SOPE && \
+    echo "Compiling SOGo & SOPE" && \
+    cd /tmp/SOPE/sope-SOPE-${SOPE_VERSION} && \
+    ./configure --with-gnustep --disable-strip --enable-debug && \
+    make && \
+    make install && \
+    cd /tmp/SOGo/sogo-SOGo-${SOGO_VERSION} && \
+    ./configure --disable-strip --enable-debug && \
+    make && \
+    make install && \
+    echo "register sogo library" && \
+    echo "/usr/local/lib/sogo" > /etc/ld.so.conf.d/sogo.conf && \
+    ldconfig && \
+    groupadd --system sogo && useradd --system --gid sogo sogo && \
+    usermod --home /srv/lib/sogo sogo && \
+    echo "create directories and enforce permissions" && \
+    install -o sogo -g sogo -m 755 -d /var/run/sogo && \
+    install -o sogo -g sogo -m 755 -d /etc/sogo && \
+    install -o sogo -g sogo -m 750 -d /var/spool/sogo && \
+    install -o sogo -g sogo -m 750 -d /var/log/sogo && \
+    apt -y remove libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev && apt clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Activate required Apache modules
 RUN a2enmod headers proxy proxy_http rewrite ssl
 
-# Move SOGo's data directory to /srv
-RUN usermod --home /srv/lib/sogo sogo
-
-# FIXME: somehow this confiugration causes a startup error
-# ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libssl.so
-ENV USEWATCHDOG=YES
-ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
-
 # SOGo daemons
-RUN mkdir -p /etc/service/sogod/log /etc/service/apache2/log /etc/service/memcached/log
-ADD sogod.sh /etc/service/sogod/run
-ADD sogod-log.sh /etc/service/sogod/log/run
-ADD apache2.sh /etc/service/apache2/run
-ADD apache2-log.sh /etc/service/apache2/log/run
-RUN echo 'LogFormat "%h %A %l %u %t \"%r\" %>s %p %b" syslog' > /etc/apache2/httpd.conf && \
-    cat /etc/apache2/apache2.conf >> /etc/apache2/httpd.conf && \
-    mv /etc/apache2/httpd.conf /etc/apache2/apache2.conf && \
-    sed -i -e 's|CustomLog \${APACHE_LOG_DIR}/access.log combined|CustomLog "\|/usr/bin/logger -t httpd -p local0.info" syslog|' -e 's|ErrorLog \${APACHE_LOG_DIR}/error.log|ErrorLog /dev/stdout|' /etc/apache2/sites-available/*.conf
-ADD memcached.sh /etc/service/memcached/run
-ADD memcached-log.sh /etc/service/memcached/log/run
-
-# Make GATEWAY host available, control memcached startup
-RUN mkdir -p /etc/my_init.d
-ADD memcached-control.sh /etc/my_init.d/
+COPY template /template
+COPY sogod.sh /
+COPY apache2.sh /
 
 # Interface the environment
 VOLUME /srv
 EXPOSE 80 443 8800
 
-# Baseimage init process
-ENTRYPOINT ["/sbin/my_init"]
-CMD []
+ENTRYPOINT ["sh", "-c", "rm -f /var/run/apache2/apache2.pid && /apache2.sh && /sogod.sh && tail -f /var/log/sogo/sogo.log"]

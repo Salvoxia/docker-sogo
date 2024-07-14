@@ -1,29 +1,38 @@
 #!/bin/bash
 set -eo pipefail
 
-mkdir -p /var/run/sogo
-touch /var/run/sogo/sogo.pid
-chown -R sogo:sogo /var/run/sogo
+chown -R sogo:sogo /srv
 
 #Solve libssl bug for Mail View
-if [[ -z "${LD_PRELOAD}" ]]; then
-	LIBSSL_LOCATION=$(find /lib /usr/lib /usr/local/lib -type f -name "libssl.so.*" -print -quit)
-	grep -q "^LD_PRELOAD" /etc/default/sogo || echo "LD_PRELOAD=$LIBSSL_LOCATION" >>/etc/default/sogo
-	export LD_PRELOAD=$LIBSSL_LOCATION
-else
-	echo "LD_PRELOAD=$LD_PRELOAD" >>/etc/default/sogo
-	export LD_PRELOAD=$LD_PRELOAD
-fi
+LIBSSL_LOCATION=$(find /lib /usr/lib /usr/local/lib -type f -name "libssl.so.*" -print -quit)
+export LD_PRELOAD=$LIBSSL_LOCATION
 
 # Copy back administrator's configuration
+# Create default config if non provided
+if [ ! -f /srv/etc/sogo.conf ]; then
+  mkdir -p /srv/etc/
+  cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf
+fi
 cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
+chown -R sogo:sogo /etc/sogo/sogo.conf
+
+# Make backup script available
+if [ ! -f /srv/sogo-backup.sh ]; then
+  mkdir -p /srv
+  su sogo sh -c 'cp -L /template/sogo/sogo-backup.sh /srv/sogo-backup.sh'
+  chmod +x /srv/sogo-backup.sh
+fi
 
 # Create SOGo home directory if missing
 mkdir -p /srv/lib/sogo
-chown -R sogo /srv/lib/sogo
+chown -R sogo:sogo /srv/lib/sogo
 
 # Load crontab
+if [ ! -f /srv/etc/cron ]; then
+  mkdir -p /srv/etc/
+  cp -L /template/cron/cron.template /srv/etc/cron
+fi
 cp -L /srv/etc/cron /etc/cron.d/sogo
 
-# Run SOGo in foreground
-LD_PRELOAD=$LD_PRELOAD exec /sbin/setuser sogo /usr/sbin/sogod -WOUseWatchDog $USEWATCHDOG -WONoDetach YES -WOPort "127.0.0.1:20000" -WOPidFile /var/run/sogo/sogo.pid
+# Run SOGo in background
+LD_PRELOAD=$LD_PRELOAD exec su sogo -c '/usr/local/sbin/sogod -WOUseWatchDog $USEWATCHDOG -WOPort "127.0.0.1:20000" -WOPidFile /var/run/sogo/sogo.pid'

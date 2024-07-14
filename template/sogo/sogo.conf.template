@@ -1,0 +1,60 @@
+{
+  /* *********************  Main SOGo configuration file  **********************
+   *                                                                           *
+   * Since the content of this file is a dictionary in OpenStep plist format,  *
+   * the curly braces enclosing the body of the configuration are mandatory.   *
+   * See the Installation Guide for details on the format.                     *
+   *                                                                           *
+   * C and C++ style comments are supported.                                   *
+   *                                                                           *
+   * This example configuration contains only a subset of all available        *
+   * configuration parameters. Please see the installation guide more details. *
+   *                                                                           *
+   * ~sogo/GNUstep/Defaults/.GNUstepDefaults has precedence over this file,    *
+   * make sure to move it away to avoid unwanted parameter overrides.          *
+   *                                                                           *
+   * **************************************************************************/
+  /* Database configuration (mysql://, postgresql:// or oracle://) */
+  SOGoProfileURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_user_profile";
+  OCSFolderInfoURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_folder_info";
+  OCSSessionsFolderURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_sessions_folder";
+  OCSEMailAlarmsFolderURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_alarms_folder";
+
+  SOGoLanguage = English;
+  SOGoAppointmentSendEMailNotifications = YES;
+  SOGoMailingMechanism = smtp;
+  SOGoSMTPServer = 192.168.1.16;
+  SOGoTimeZone = UTC;
+  SOGoSentFolderName = Sent;
+  SOGoTrashFolderName = Trash;
+  SOGoDraftsFolderName = Drafts;
+  SOGoIMAPServer = "imap://192.168.1.16:143";
+  SOGoSieveServer = "sieve://localhost:4190/?tls=YES";
+  SOGoIMAPAclConformsToIMAPExt = YES;
+  SOGoVacationEnabled = NO;
+  SOGoForwardEnabled = NO;
+  SOGoSieveScriptsEnabled = NO;
+  SOGoFirstDayOfWeek = 0;
+  SOGoMailMessageCheck = manually;
+  SOGoMailAuxiliaryUserAccountsEnabled = NO;
+  SOGoMemcachedHost = 127.0.0.1;
+  WOWorkersCount = 8;
+    /* LDAP authentication example */
+    SOGoUserSources = (
+    {
+       type = ldap;
+       CNFieldName = cn;
+       UIDFieldName = uid;
+       IDFieldName = uid; // first field of the DN for direct binds
+       bindFields = (mail); // array of fields to use for indirect binds
+       baseDN = "dc=ldap,dc=goauthentik,dc=io";
+       bindDN = "cn=ldapsearch,ou=goauthentik.io,DC=ldap,DC=goauthentik,DC=io";
+       bindPassword = "28uW4A3T6rac5is9SC4MkKGAcG3fE71453Va10C50BwJUrThBxSeoYQuiaxr";
+       canAuthenticate = YES;
+       displayName = "Babylon";
+       hostname = ldap://authentik.local.salvoxia.de:389;
+       id = public;
+       isAddressBook = NO;
+    }
+    );
+}
