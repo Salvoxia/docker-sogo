@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eo pipefail
 
-chown -R sogo:sogo /srv
-
 #Solve libssl bug for Mail View
 LIBSSL_LOCATION=$(find /lib /usr/lib /usr/local/lib -type f -name "libssl.so.*" -print -quit)
 export LD_PRELOAD=$LIBSSL_LOCATION
@@ -11,7 +9,8 @@ export LD_PRELOAD=$LIBSSL_LOCATION
 # Create default config if non provided
 if [ ! -f /srv/etc/sogo.conf ]; then
   mkdir -p /srv/etc/
-  cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf
+  cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf#
+  chmod 0777 /srv/etc/sogo.conf
 fi
 cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
 chown -R sogo:sogo /etc/sogo/sogo.conf
@@ -19,8 +18,8 @@ chown -R sogo:sogo /etc/sogo/sogo.conf
 # Make backup script available
 if [ ! -f /srv/sogo-backup.sh ]; then
   mkdir -p /srv
-  su sogo sh -c 'cp -L /template/sogo/sogo-backup.sh /srv/sogo-backup.sh'
-  chmod +x /srv/sogo-backup.sh
+  cp -L /template/sogo/sogo-backup.sh /srv/sogo-backup.sh
+  chmod 0777 /srv/sogo-backup.sh
 fi
 
 # Create SOGo home directory if missing
@@ -31,6 +30,7 @@ chown -R sogo:sogo /srv/lib/sogo
 if [ ! -f /srv/etc/cron ]; then
   mkdir -p /srv/etc/
   cp -L /template/cron/cron.template /srv/etc/cron
+  chmod 0777 /srv/etc/cron
 fi
 cp -L /srv/etc/cron /etc/cron.d/sogo
 
