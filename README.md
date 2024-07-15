@@ -136,7 +136,7 @@ All other configuration options have no special considerations.
 
 Run the image in a container, expose ports as needed and making `/srv`
 permanent. An example run command, which links to a database container named
-`db` and uses an external HTTP proxy for wrapping in HTTPS might be
+`db` and as well as a memcached container named `memcached`.
 
 ```bash
 docker run -d \
@@ -147,6 +147,8 @@ docker run -d \
   salvoxia/sogo:latest
 ```
 
+Also take a look at the [docker-compose example](examples/docker/README.md).
+
 ## Upgrading and Maintenance
 
 Most of the time, no special action must be performed for upgrading SOGo. Read
@@ -156,10 +158,10 @@ prior upgrading the container to verify whether anything special needs to be
 considered.
 
 
-## Kubernets Manifest Exmaples
+## Kubernetes Manifest Exmaples
 
-I created a stolon external database under stolon-proxy.pg12, then created a new
-user and database named "sogo" under pgadmin4.
+The [Kubernetes Manifest Examples]() contain an example setup for a SOGo Deployment with Service, ConfigMap. Since the
+database credentials are configured in SOGo's `sogo.conf` file, the 
 
 ### Variables
 

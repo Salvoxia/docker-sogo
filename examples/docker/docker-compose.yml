@@ -1,0 +1,23 @@
+services:
+    memcached:
+      image: bitnami/memcached:latest
+      restart: unless-stopped
+    db:
+      image: postgres:16.3
+      restart: unless-stopped
+      environment:
+        - POSTGRES_DB=sogo
+        - POSTGRES_USER=sogo
+        - POSTGRES_PASSWORD=sogo
+      volumes:
+        - ./sogo/database:/var/lib/postgresql/data
+    sogo:
+        image: ghcr.io/salvoxia/sogo:latest
+        depends_on:
+          - db
+          - memcached
+        ports:
+          - 8080:80
+        volumes:
+          - ./sogo/data:/srv
+        restart: unless-stopped
