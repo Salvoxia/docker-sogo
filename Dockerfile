@@ -1,6 +1,12 @@
 FROM ubuntu:24.04
 ENV SOGO_VERSION=5.10.0
 ENV SOPE_VERSION=${SOGO_VERSION}
+# Attention when chaning the source URLs!
+# The script below assumes the source zip files to contain a 
+# top-level folder sogo-SOGo-${SOGO_VERSION} and sope-SOPE-${SOPE_VERSION}, respectively!
+ENV SOGO_SOURCE_URL=https://github.com/Alinto/sogo/archive/refs/tags/SOGo-${SOGO_VERSION}.zip
+ENV SOPE_SOURCE_URL=https://github.com/Alinto/sope/archive/refs/tags/SOPE-${SOPE_VERSION}.zip
+
 
 LABEL maintainer="Salvoxia <salvoxia@blindfish.info>"
 ENV DEBIAN_FRONTEND=noninteractive
@@ -13,8 +19,8 @@ ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 RUN apt update && \
     apt install -y --no-install-recommends gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev  && \
     echo "Downloading SOGo & SOPE" && \
-    curl -L https://github.com/Alinto/sogo/archive/refs/tags/SOGo-${SOGO_VERSION}.zip -o /tmp/sogo.zip && \
-    curl -L https://github.com/Alinto/sope/archive/refs/tags/SOPE-${SOPE_VERSION}.zip -o /tmp/sope.zip && \
+    curl -L ${SOGO_SOURCE_URL} -o /tmp/sogo.zip && \
+    curl -L ${SOPE_SOURCE_URL} -o /tmp/sope.zip && \
     unzip /tmp/sogo.zip -d /tmp/SOGo && \
     unzip /tmp/sope.zip -d /tmp/SOPE && \
     echo "Compiling SOGo & SOPE" && \
