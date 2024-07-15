@@ -44,7 +44,7 @@ RUN apt update && \
     install -o sogo -g sogo -m 750 -d /var/log/sogo && \
     apt remove -y libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev && \
     # Install runtime dependencies for SOGo and SOPE
-    apt install -y --no-install-recommends gnustep-base-runtime libc6 libcrypt1 libcurl4 libgcc-s1 liblasso3 libmemcached11 liboath0 libobjc4 libsbjson libsodium23 libssl3 libytnef0 libzip4 gnustep-make gettext-base apache2 libmysqlclient21 libpq5 zlib1g libxml2 && \
+    apt install -y --no-install-recommends gnustep-base-runtime libc6 libcrypt1 libcurl4 libgcc-s1 liblasso3 libmemcached11 liboath0 libobjc4 libsbjson libsodium23 libssl3 libytnef0 libzip4 gnustep-make gettext-base apache2 libmysqlclient21 libpq5 zlib1g libxml2 cron && \
     apt autoremove -y && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

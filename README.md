@@ -26,6 +26,7 @@ following files:
 .
 ├── etc
 │   ├── apache-SOGo.conf
+|   ├── cron
 │   └── sogo.conf
 └── lib
     └── sogo
@@ -143,7 +144,7 @@ docker run -d \
   --publish='127.0.0.1:80:80' \
   --link='sogo-postgresql:db' \
   --volume='/srv/sogo:/srv' \
-  salvoxia/sogo
+  salvoxia/sogo:latest
 ```
 
 ## Upgrading and Maintenance
@@ -190,7 +191,7 @@ Then for the volumes, I used :
   default provider with Many Nodes Read-Write)
 - Mount Point : `/srv`
 
-### Configuration exemple
+### Configuration example
 
   - [template/apache2/SOGo.conf.template](template/apache2/SOGo.conf.template)
   - [template/cron/cron.template](template/cron/cron.template)
