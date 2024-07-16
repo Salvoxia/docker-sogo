@@ -44,7 +44,7 @@ RUN apt update && \
     install -o sogo -g sogo -m 750 -d /var/log/sogo && \
     apt remove -y libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev && \
     # Install runtime dependencies for SOGo and SOPE
-    apt install -y --no-install-recommends gnustep-base-runtime libc6 libcrypt1 libcurl4 libgcc-s1 liblasso3 libmemcached11 liboath0 libobjc4 libsbjson libsodium23 libssl3 libytnef0 libzip4 gnustep-make gettext-base apache2 libmysqlclient21 libpq5 zlib1g libxml2 cron && \
+    apt install -y --no-install-recommends gnustep-base-runtime libc6 libcrypt1 libcurl4 libgcc-s1 liblasso3 libmemcached11 liboath0 libobjc4 libsbjson libsodium23 libssl3 libytnef0 libzip4 gnustep-make gettext-base apache2 libmysqlclient21 libpq5 zlib1g libxml2 cron memcached && \
     apt autoremove -y && \
     apt clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -54,11 +54,16 @@ RUN a2enmod headers proxy proxy_http rewrite ssl
 
 # SOGo daemons
 COPY template /template
-COPY sogod.sh /
 COPY apache2.sh /
+COPY cron.sh /
+COPY memcached.sh /
+COPY sogod.sh /
+COPY start.sh /
+RUN chmod +x apache2.sh cron.sh memcached.sh sogod.sh start.sh
+
 
 # Interface the environment
 VOLUME /srv
 EXPOSE 80 443 8800
 
-ENTRYPOINT ["sh", "-c", "rm -f /var/run/apache2/apache2.pid && /apache2.sh && /sogod.sh && tail -f /var/log/sogo/sogo.log"]
+ENTRYPOINT ["sh", "-c", "/start.sh && tail -f /var/log/sogo/sogo.log"]

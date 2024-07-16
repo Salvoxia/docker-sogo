@@ -26,14 +26,5 @@ fi
 mkdir -p /srv/lib/sogo
 chown -R sogo:sogo /srv/lib/sogo
 
-# Load crontab
-if [ ! -f /srv/etc/cron ]; then
-  mkdir -p /srv/etc/
-  cp -L /template/cron/cron.template /srv/etc/cron
-  chmod 0777 /srv/etc/cron
-fi
-cp -L /srv/etc/cron /etc/cron.d/sogo
-service cron start
-
 # Run SOGo in background
 LD_PRELOAD=$LD_PRELOAD exec su sogo -c '/usr/local/sbin/sogod -WOUseWatchDog $USEWATCHDOG -WOPort "127.0.0.1:20000" -WOPidFile /var/run/sogo/sogo.pid'
