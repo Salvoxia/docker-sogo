@@ -8,10 +8,10 @@
 
 [SOGo](https://www.sogo.nu) is a fully supported and trusted groupware server
 with a focus on scalability and open standards. SOGo is released under the GNU
-GPL/LGPL v2 and above.
+GPL/LGPL v2 and above.  
+The app features a web interface for an IMAP server, (shared) addressbook and calendar management with full CardDAV and CaldDAV support.
 
-This Dockerfile packages SOGo compiled from a defined production source tag, together with Apache 2 and
-memcached. 
+This Dockerfile packages SOGo compiled from a defined production source tag, together with Apache 2 and memcached. 
 This means that this image does not rely on the SOGo packages getting updated by any package managers while at the same time using a pinned production tag instead of a nightly release.  
 The image is set up in a way to support High Availability (multiple replicas) in a Kubernetes Cluster and provides example files for Docker as well as Kubernetes setups.
 
