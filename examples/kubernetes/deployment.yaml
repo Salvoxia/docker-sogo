@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sogo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: app
+      app.kubernetes.io/name: sogo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: app
+        app.kubernetes.io/name: sogo
+    spec:
+      containers:
+      - name: sogo
+        image: salvoxia/sogo
+        env:
+          - name: DISABLE_CRON
+            value: "1"
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /SOGo
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 2
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /SOGo
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /srv/etc
+          name: config
+      volumes:
+      - name: config
+        configMap:
+          name: sogo-config
+
+  

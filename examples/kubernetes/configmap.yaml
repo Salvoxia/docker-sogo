@@ -1,0 +1,184 @@
+apiVersion: v1
+data:
+  apache-SOGo.conf: |
+    Alias /SOGo.woa/WebServerResources/ \
+          /usr/local/lib/GNUstep/SOGo/WebServerResources/
+    Alias /SOGo/WebServerResources/ \
+          /usr/local/lib/GNUstep/SOGo/WebServerResources/
+
+    <Directory /usr/local/lib/GNUstep/SOGo/>
+        AllowOverride None
+
+        <IfVersion < 2.4>
+            Order deny,allow
+            Allow from all
+        </IfVersion>
+        <IfVersion >= 2.4>
+            Require all granted
+        </IfVersion>
+
+        # Explicitly allow caching of static content to avoid browser specific behavior.
+        # A resource's URL MUST change in order to have the client load the new version.
+        <IfModule expires_module>
+          ExpiresActive On
+          ExpiresDefault "access plus 1 year"
+        </IfModule>
+    </Directory>
+
+    # Don't send the Referer header for cross-origin requests
+    Header always set Referrer-Policy "same-origin"
+
+    <Location /SOGo>
+      # Don't cache dynamic content
+      Header set Cache-Control "max-age=0, no-cache, no-store"
+    </Location>
+
+    ## Uncomment the following to enable proxy-side authentication, you will then
+    ## need to set the "SOGoTrustProxyAuthentication" SOGo user default to YES and
+    ## adjust the "x-webobjects-remote-user" proxy header in the "Proxy" section
+    ## below.
+    #
+    ## For full proxy-side authentication:
+    #<Location /SOGo>
+    #  AuthType XXX
+    #  Require valid-user
+    #  SetEnv proxy-nokeepalive 1
+    #  Allow from all
+    #</Location>
+    #
+    ## For proxy-side authentication only for CardDAV and GroupDAV from external
+    ## clients:
+    #<Location /SOGo/dav>
+    #  AuthType XXX
+    #  Require valid-user
+    #  SetEnv proxy-nokeepalive 1
+    #  Allow from all
+    #</Location>
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    SetEnv proxy-nokeepalive 1
+
+    # Uncomment the following lines if you experience "Bad gateway" errors with mod_proxy
+    #SetEnv proxy-initial-not-pooled 1
+    #SetEnv force-proxy-request-1.0 1
+
+    # When using CAS, you should uncomment this and install cas-proxy-validate.py
+    # in /usr/lib/cgi-bin to reduce server overloading
+    #
+    # ProxyPass /SOGo/casProxy http://localhost/cgi-bin/cas-proxy-validate.py
+    # <Proxy http://localhost/app/cas-proxy-validate.py>
+    #   Order deny,allow
+    #   Allow from your-cas-host-addr
+    # </Proxy>
+
+    # Redirect / to /SOGo
+    RedirectMatch ^/$ /SOGo
+
+    # Enable to use Microsoft ActiveSync support
+    # Note that you MUST have many sogod workers to use ActiveSync.
+    # See the SOGo Installation and Configuration guide for more details.
+    #
+    ProxyPass /Microsoft-Server-ActiveSync \
+     http://127.0.0.1:20000/SOGo/Microsoft-Server-ActiveSync \
+     retry=60 connectiontimeout=5 timeout=360
+
+    ProxyPass /SOGo http://127.0.0.1:20000/SOGo retry=0 nocanon
+
+    <Proxy http://127.0.0.1:20000/SOGo>
+    ## Adjust the following to your configuration
+    ## and make sure to enable the headers module
+      <IfModule headers_module>
+        RequestHeader set "x-webobjects-server-port" "80"
+        SetEnvIf Host "(.*)" HTTP_HOST=$1
+        RequestHeader set "x-webobjects-server-name" "%{HTTP_HOST}e" env=HTTP_HOST
+        RequestHeader set "x-webobjects-server-url" "http://%{HTTP_HOST}e" env=HTTP_HOST
+
+    ## When using proxy-side autentication, you need to uncomment and
+    ## adjust the following line:
+        RequestHeader unset "x-webobjects-remote-user"
+    #    RequestHeader set "x-webobjects-remote-user" "%{REMOTE_USER}e" env=REMOTE_USER
+
+        RequestHeader set "x-webobjects-server-protocol" "HTTP/1.0"
+      </IfModule>
+
+      AddDefaultCharset UTF-8
+
+      Order allow,deny
+      Allow from all
+    </Proxy>
+
+    # For Apple autoconfiguration
+    <IfModule rewrite_module>
+      RewriteEngine On
+      RewriteRule ^/.well-known/caldav/?$ /SOGo/dav [R=301]
+      RewriteRule ^/.well-known/carddav/?$ /SOGo/dav [R=301]
+    </IfModule>
+  sogo.conf: |
+    {
+      /* *********************  Main SOGo configuration file  **********************
+       *                                                                           *
+       * Since the content of this file is a dictionary in OpenStep plist format,  *
+       * the curly braces enclosing the body of the configuration are mandatory.   *
+       * See the Installation Guide for details on the format.                     *
+       *                                                                           *
+       * C and C++ style comments are supported.                                   *
+       *                                                                           *
+       * This example configuration contains only a subset of all available        *
+       * configuration parameters. Please see the installation guide more details. *
+       *                                                                           *
+       * ~sogo/GNUstep/Defaults/.GNUstepDefaults has precedence over this file,    *
+       * make sure to move it away to avoid unwanted parameter overrides.          *
+       *                                                                           *
+       * **************************************************************************/
+      /* Database configuration (mysql://, postgresql:// or oracle://) */
+      SOGoProfileURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_user_profile";
+      OCSFolderInfoURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_folder_info";
+      OCSSessionsFolderURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_sessions_folder";
+      OCSEMailAlarmsFolderURL = "mysql://sogo:sogoDbPassword@192.168.1.32:13306/sogo/sogo_alarms_folder";
+
+      SOGoLanguage = English;
+      SOGoAppointmentSendEMailNotifications = YES;
+      SOGoMailingMechanism = smtp;
+      SOGoSMTPServer = 192.168.1.16;
+      SOGoTimeZone = UTC;
+      SOGoSentFolderName = Sent;
+      SOGoTrashFolderName = Trash;
+      SOGoDraftsFolderName = Drafts;
+      SOGoIMAPServer = "imap://192.168.1.16:143";
+      SOGoSieveServer = "sieve://localhost:4190/?tls=YES";
+      SOGoIMAPAclConformsToIMAPExt = YES;
+      SOGoVacationEnabled = NO;
+      SOGoForwardEnabled = NO;
+      SOGoSieveScriptsEnabled = NO;
+      SOGoFirstDayOfWeek = 0;
+      SOGoMailMessageCheck = manually;
+      SOGoMailAuxiliaryUserAccountsEnabled = NO;
+      SOGoMemcachedHost = 127.0.0.1;
+      WOWorkersCount = 8;
+        /* LDAP authentication example */
+        SOGoUserSources = (
+        {
+           type = ldap;
+           CNFieldName = cn;
+           UIDFieldName = uid;
+           IDFieldName = uid; // first field of the DN for direct binds
+           bindFields = (mail); // array of fields to use for indirect binds
+           baseDN = "dc=ldap,dc=goauthentik,dc=io";
+           bindDN = "cn=ldapsearch,ou=goauthentik.io,DC=ldap,DC=goauthentik,DC=io";
+           bindPassword = "28uW4A3T6rac5is9SC4MkKGAcG3fE71453Va10C50BwJUrThBxSeoYQuiaxr";
+           canAuthenticate = YES;
+           displayName = "Babylon";
+           hostname = ldap://authentik.local.salvoxia.de:389;
+           id = public;
+           isAddressBook = NO;
+        }
+        );
+    }
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-07-16T08:28:36Z"
+  name: sogo
+  namespace: sogo
+  resourceVersion: "6275446"
+  uid: 80bceb5b-6135-4d47-bfc7-dd0046adcd01

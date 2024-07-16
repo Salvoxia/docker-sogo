@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sogo-ingress
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: sogo.example.org
+    http:
+      paths:
+      - backend:
+          service:
+            name: sogo-service
+            port:
+              name: http
+        pathType: ImplementationSpecific

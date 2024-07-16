@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sogo-every-minute
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:      
+      template:
+        spec:
+          containers:
+            - name: sogo
+              image: salvoxia/sogo
+              command:
+                - sh
+              args:
+                - -c
+                # Run Session expiry and Email Alarms jobs as user 'sogo' after starting up the daemon
+                - /start.sh && su sogo -c '/usr/local/sbin/sogo-tool expire-sessions 60 && /usr/local/sbin/sogo-ealarms-notify'
+              env:
+                - name: DISABLE_CRON
+                  value: "1"
+              ports:
+              - containerPort: 80
+                name: http
+                protocol: TCP
+              resources: {}
+              volumeMounts:
+              - mountPath: /srv/etc
+                name: config
+          volumes:
+            - name: config
+              configMap:
+                name: sogo-config
+          restartPolicy: Never
