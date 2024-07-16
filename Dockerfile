@@ -21,17 +21,14 @@ RUN apt update && \
     echo "Downloading SOGo & SOPE" && \
     curl -L ${SOGO_SOURCE_URL} -o /tmp/sogo.zip && \
     curl -L ${SOPE_SOURCE_URL} -o /tmp/sope.zip && \
-    unzip /tmp/sogo.zip -d /tmp/SOGo && \
-    unzip /tmp/sope.zip -d /tmp/SOPE && \
-    echo "Compiling SOGo & SOPE" && \
-    cd /tmp/SOPE/sope-SOPE-${SOPE_VERSION} && \
-    ./configure --with-gnustep --disable-strip --enable-debug && \
-    make && \
-    make install && \
-    cd /tmp/SOGo/sogo-SOGo-${SOGO_VERSION} && \
-    ./configure --disable-strip --enable-debug && \
-    make && \
-    make install && \
+    unzip /tmp/sogo.zip -d /tmp && \
+    unzip /tmp/sope.zip -d /tmp && \
+    echo "Compiling SOPE" && \
+    mv /tmp/sope-SOPE-${SOPE_VERSION} /tmp/SOPE  && \
+    cd /tmp/SOPE && ./configure --with-gnustep --disable-strip --enable-debug && make && make install && \
+    echo "Compiling SOGo" && \
+    mv /tmp/sogo-SOGo-${SOGO_VERSION} /tmp/SOGo && \
+    cd /tmp/SOGo && ./configure --disable-strip --enable-debug && make && make install && \
     echo "register sogo library" && \
     echo "/usr/local/lib/sogo" > /etc/ld.so.conf.d/sogo.conf && \
     ldconfig && \
