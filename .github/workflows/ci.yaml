@@ -1,15 +1,12 @@
-name: build-image
+---
+name: CI
 
-on:
+'on':
+  pull_request:
   push:
     paths-ignore:
-    - 'README.md'
-    branches:
-    - main
-    - dev
-    tags:
-    - '[0-9]+.*'
-    
+      - 'README.md'
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -36,10 +33,8 @@ jobs:
             type=edge,enable={{is_default_branch}}
             # set dev tag for dev branch
             type=raw,value=dev,enable=${{ github.ref == format('refs/heads/{0}', 'dev') }},branch=dev
-            # Tags for non SemVer tag names
-            type=match,pattern=([0-9]+.*),group=1
-            # latest tag for any tags
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }},event=tag
+            # set build-test tag for any branch not dev or the default one
+            type=raw,value=build-test,enable=${{ github.ref != format('refs/heads/{0}', 'dev') && github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }},branch=dev
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -65,5 +60,6 @@ jobs:
         with:
           context: .
           platforms: linux/arm64/v8,linux/amd64
-          push: true
+          # Push only for default branch or dev branch
+          push: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || github.ref == format('refs/heads/{0}', 'dev') }}
           tags: ${{ steps.meta.outputs.tags }}
