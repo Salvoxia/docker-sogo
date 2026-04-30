@@ -9,7 +9,7 @@ export LD_PRELOAD=$LIBSSL_LOCATION
 # Create default config if non provided
 if [ ! -f /srv/etc/sogo.conf ]; then
   mkdir -p /srv/etc/
-  cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf#
+  cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf
   chmod 0777 /srv/etc/sogo.conf
 fi
 cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
