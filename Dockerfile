@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 ENV SOGO_VERSION=5.12.12
 ENV SOPE_VERSION=${SOGO_VERSION}
 # Attention when chaning the source URLs!
