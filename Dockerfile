@@ -1,4 +1,4 @@
-FROM ubuntu:26.04
+FROM ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
 ENV SOGO_VERSION=5.12.13
 ENV SOPE_VERSION=${SOGO_VERSION}
 # Attention when chaning the source URLs!
