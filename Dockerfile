@@ -1,5 +1,5 @@
 FROM ubuntu:26.04
-ENV SOGO_VERSION=5.12.12
+ENV SOGO_VERSION=5.12.13
 ENV SOPE_VERSION=${SOGO_VERSION}
 # Attention when chaning the source URLs!
 # The script below assumes the source zip files to contain a 
