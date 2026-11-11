@@ -47,7 +47,7 @@ ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2-16 libssl3t64 libldap2 libpq5 libmysqlclient24 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached
+    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2-16 libssl3t64 libldap2 libpq5 libmysqlclient24 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
     apt clean
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 EOT
@@ -83,5 +83,9 @@ RUN chmod +x apache2.sh cron.sh memcached.sh sogod.sh start.sh
 # Interface the environment
 VOLUME /srv
 EXPOSE 80 443 8800
+
+# /SOGo is proxied to sogod by Apache, so this fails if either of them is down
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl --fail --silent --output /dev/null http://localhost/SOGo || exit 1
 
 ENTRYPOINT ["sh", "-c", "/start.sh && tail -f /var/log/sogo/sogo.log"]
