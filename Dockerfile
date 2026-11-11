@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+ARG BASE_IMAGE=debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
 #####################################################################
 # Build stage: compile SOPE and SOGo into /usr/local
@@ -16,7 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev postgresql-server-dev-all libmemcached-dev libcurl4-openssl-dev libmysqlclient-dev curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev libcrypt-dev
+    apt install -y --no-install-recommends ca-certificates gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev libpq-dev libmemcached-dev libcurl4-openssl-dev libmariadb-dev-compat curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev libcrypt-dev
     echo "Downloading SOGo & SOPE"
     curl -fL ${SOGO_SOURCE_URL} -o /tmp/sogo.zip
     curl -fL ${SOPE_SOURCE_URL} -o /tmp/sope.zip
@@ -47,7 +47,7 @@ ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2-16 libssl3t64 libldap2 libpq5 libmysqlclient24 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
+    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
     apt clean
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 EOT
