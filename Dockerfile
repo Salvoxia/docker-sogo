@@ -24,7 +24,7 @@ RUN <<EOT
     unzip -q /tmp/sope.zip -d /tmp
     echo "Compiling SOPE"
     mv /tmp/sope-SOPE-${SOPE_VERSION} /tmp/SOPE
-    cd /tmp/SOPE && ./configure --with-gnustep --disable-strip --enable-debug && make && make install
+    cd /tmp/SOPE && ./configure --with-gnustep --disable-strip --enable-debug --enable-mfa --enable-sodium && make && make install
     echo "Compiling SOGo"
     mv /tmp/sogo-SOGo-${SOGO_VERSION} /tmp/SOGo
     cd /tmp/SOGo && ./configure --disable-strip --enable-debug && make && make install
