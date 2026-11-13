@@ -16,7 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev libpq-dev libmemcached-dev libcurl4-openssl-dev libmariadb-dev-compat curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev libcrypt-dev
+    apt install -y --no-install-recommends ca-certificates gnustep-make gnustep-base-runtime libgnustep-base-dev gobjc libxml2-dev libssl-dev libldap-dev libpq-dev libmemcached-dev libcurl4-openssl-dev libmariadb-dev-compat curl unzip pkg-config libsodium-dev libzip-dev libytnef0-dev liblasso3-dev liboath-dev libcrypt-dev python-is-python3
     echo "Downloading SOGo & SOPE"
     curl -fL ${SOGO_SOURCE_URL} -o /tmp/sogo.zip
     curl -fL ${SOPE_SOURCE_URL} -o /tmp/sope.zip
@@ -24,10 +24,17 @@ RUN <<EOT
     unzip -q /tmp/sope.zip -d /tmp
     echo "Compiling SOPE"
     mv /tmp/sope-SOPE-${SOPE_VERSION} /tmp/SOPE
-    cd /tmp/SOPE && ./configure --with-gnustep --disable-strip --enable-debug && make && make install
+    # Separate commands instead of && chains, otherwise "set -e" does not abort on failing steps
+    cd /tmp/SOPE
+    ./configure --with-gnustep --disable-strip --enable-debug
+    make
+    make install
     echo "Compiling SOGo"
     mv /tmp/sogo-SOGo-${SOGO_VERSION} /tmp/SOGo
-    cd /tmp/SOGo && ./configure --disable-strip --enable-debug --enable-mfa --enable-sodium --enable-saml2 && make && make install
+    cd /tmp/SOGo
+    ./configure --disable-strip --enable-debug --enable-mfa --enable-sodium --enable-saml2
+    make
+    make install
     # Headers are only needed for compiling
     rm -rf /usr/local/include
 EOT
@@ -47,7 +54,7 @@ ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
+    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 liboath0t64 liblasso3t64 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
     apt clean
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 EOT
