@@ -27,33 +27,36 @@ add_job() {
   echo "Cron job $variable: $schedule $command"
 }
 
-if [ ! "${DISABLE_CRON}" = "1" ]; then
-    # Crontab of previous versions, which is no longer used
-    if [ -f /srv/etc/cron ]; then
-        /cron-legacy-check.sh /srv/etc/cron
-    fi
+# Previous versions disabled all jobs with DISABLE_CRON, jobs are now only enabled with CRON_* variables
+if [ -n "${DISABLE_CRON}" ]; then
+    echo "NOTICE: DISABLE_CRON is no longer supported and ignored. Cron jobs only run if enabled with CRON_* environment variables, except CRON_TMPWATCH, set CRON_TMPWATCH=0 to run no jobs at all."
+fi
 
-    echo "# Generated from CRON_* environment variables during startup" > "$CRONTAB"
-    add_job CRON_UPDATE_AUTOREPLY "*/5 * * * *" "/usr/local/sbin/sogo-tool update-autoreply -p /srv/etc/sieve.creds"
-    if grep -q update-autoreply "$CRONTAB" && [ ! -f /srv/etc/sieve.creds ]; then
-        echo "WARNING: CRON_UPDATE_AUTOREPLY is enabled, but /srv/etc/sieve.creds with the Sieve admin credentials (username:password) is missing"
-    fi
-    add_job CRON_EXPIRE_SESSIONS "* * * * *" "/usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1"
-    # SMTP credentials are optional
-    EALARMS_CREDENTIALS=""
-    [ -f /srv/etc/smtp.creds ] && EALARMS_CREDENTIALS=" -p /srv/etc/smtp.creds"
-    add_job CRON_EALARMS_NOTIFY "* * * * *" "/usr/local/sbin/sogo-ealarms-notify$EALARMS_CREDENTIALS > /dev/null 2>&1"
-    add_job CRON_BACKUP "30 0 * * *" "/srv/sogo-backup.sh"
-    add_job CRON_CLEANUP "0 1 * * 0" "/usr/local/sbin/sogo-tool cleanup 30 ALL"
-    add_job CRON_CLEAN_OPENID_SESSIONS "0 * * * *" "/usr/local/sbin/sogo-tool clean-openid-sessions"
-    add_job CRON_TMPWATCH "0 3 * * *" "/sogo-tmpwatch.sh" 1
-    rm -f "$CRONTAB.test"
+# Crontab of previous versions, which is no longer used
+if [ -f /srv/etc/cron ]; then
+    /cron-legacy-check.sh /srv/etc/cron
+fi
 
-    if grep -qv '^#' "$CRONTAB"; then
-        echo "Starting supercronic"
-        # Runs in background, its log and the jobs' output go to the container's output
-        supercronic "$CRONTAB" &
-    else
-        echo "No cron jobs enabled, not starting supercronic"
-    fi
+echo "# Generated from CRON_* environment variables during startup" > "$CRONTAB"
+add_job CRON_UPDATE_AUTOREPLY "*/5 * * * *" "/usr/local/sbin/sogo-tool update-autoreply -p /srv/etc/sieve.creds"
+if grep -q update-autoreply "$CRONTAB" && [ ! -f /srv/etc/sieve.creds ]; then
+    echo "WARNING: CRON_UPDATE_AUTOREPLY is enabled, but /srv/etc/sieve.creds with the Sieve admin credentials (username:password) is missing"
+fi
+add_job CRON_EXPIRE_SESSIONS "* * * * *" "/usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1"
+# SMTP credentials are optional
+EALARMS_CREDENTIALS=""
+[ -f /srv/etc/smtp.creds ] && EALARMS_CREDENTIALS=" -p /srv/etc/smtp.creds"
+add_job CRON_EALARMS_NOTIFY "* * * * *" "/usr/local/sbin/sogo-ealarms-notify$EALARMS_CREDENTIALS > /dev/null 2>&1"
+add_job CRON_BACKUP "30 0 * * *" "/srv/sogo-backup.sh"
+add_job CRON_CLEANUP "0 1 * * 0" "/usr/local/sbin/sogo-tool cleanup 30 ALL"
+add_job CRON_CLEAN_OPENID_SESSIONS "0 * * * *" "/usr/local/sbin/sogo-tool clean-openid-sessions"
+add_job CRON_TMPWATCH "0 3 * * *" "/sogo-tmpwatch.sh" 1
+rm -f "$CRONTAB.test"
+
+if grep -qv '^#' "$CRONTAB"; then
+    echo "Starting supercronic"
+    # Runs in background, its log and the jobs' output go to the container's output
+    supercronic "$CRONTAB" &
+else
+    echo "No cron jobs enabled, not starting supercronic"
 fi

@@ -161,7 +161,7 @@ If you intend to run SOGo in Kubernetes using multiple replicas, jobs working on
 overriding the image's entrypoint for executing the required functionality. Leave their `CRON_*` variables unset in the replicas.
 `CRON_TMPWATCH` cleans up the container's own spool directory and should stay enabled in each replica.
 An example can be found in [examples/kubernetes/cronjob-every-minute.yaml](examples/kubernetes/cronjob-every-minute.yaml).  
-`DISABLE_CRON=1` disables all jobs, including `CRON_TMPWATCH`.
+Set `CRON_TMPWATCH=0` to run no jobs at all.
 
 ### Further Configuration
 
@@ -184,7 +184,6 @@ All other configuration options have no special considerations.
 | Environment varible   |  Mandatory? | Description   |
 | :------------------- | :----------- | :------------ |
 | DISABLE_MEMCACHED      | no | Disables the integrated `memcached` service |
-| DISABLE_CRON            | no | Disables all cron jobs, see [Cron Jobs](#cron-jobs) |
 | CRON_*                  | no | Enables cron jobs, see [Cron Jobs](#cron-jobs) |
 | HTTP_PORT               | no | Port Apache listens on for HTTP, default `8080` |
 | HTTPS_PORT              | no | Port Apache listens on for HTTPS, default `8443` |
