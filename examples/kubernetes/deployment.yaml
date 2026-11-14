@@ -26,9 +26,6 @@ spec:
           capabilities:
             drop:
               - ALL
-        env:
-          - name: DISABLE_CRON
-            value: "1"
         livenessProbe:
           failureThreshold: 3
           httpGet:

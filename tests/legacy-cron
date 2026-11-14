@@ -1,0 +1,10 @@
+# Crontab of previous versions for the end-to-end test, which is no longer used
+# Enabled with CRON_EXPIRE_SESSIONS and CRON_BACKUP, no warning expected
+* * * * *      sogo	/usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1
+@daily sogo /srv/sogo-backup.sh
+# Not enabled, warning expected
+*/5 * * * *    sogo	/usr/local/sbin/sogo-ealarms-notify > /dev/null 2>&1
+# Commented out, no warning expected
+#0 1 * * 0      sogo	/usr/local/sbin/sogo-tool cleanup 30 ALL
+# Custom job, warning expected
+*/10 * * * * /usr/bin/true

@@ -42,7 +42,6 @@ following files:
 .
 ├── etc
 │   ├── apache-SOGo.conf
-|   ├── cron
 │   └── sogo.conf
 └── lib
     └── sogo
@@ -130,30 +129,39 @@ ProxyPass /Microsoft-Server-ActiveSync \
   retry=60 connectiontimeout=5 timeout=360
 ```
 
-### Cron-Jobs: Backup, Session Timeout, E-Mail Reminders, ...
+### Cron Jobs
 
-SOGo heavily relies on cron jobs for different purposes. The image provides
-SOGo's original cron file as `./etc/cron`. Uncomment sections as need.
-The backup script is available and made executable at the
-predefined location `/srv/sogo-backup.sh`, so backup is fully
-functional immediately after uncommenting the respective cron job.
+SOGo relies on periodic jobs for backups, session timeouts, e-mail reminders and more.
+They are run by [supercronic](https://github.com/aptible/supercronic) with the container's
+user and enabled with environment variables:
 
-The jobs are run by [supercronic](https://github.com/aptible/supercronic) as user `sogo`,
-their output is written to the container's log. Unlike files in `/etc/cron.d`, the
-crontab has no user column:
+| Environment variable | Job | Default schedule |
+| :------------------- | :-- | :--------------- |
+| CRON_UPDATE_AUTOREPLY | Activates and expires vacation messages (`sogo-tool update-autoreply`). Only needed if your Sieve server does not support the `date` extension. Requires the Sieve admin credentials as `username:password` in `/srv/etc/sieve.creds`. | `*/5 * * * *` |
+| CRON_EXPIRE_SESSIONS | Expires sessions without activity for 60 minutes (`sogo-tool expire-sessions 60`) | `* * * * *` |
+| CRON_EALARMS_NOTIFY | Sends e-mail reminders (`sogo-ealarms-notify`). If the SMTP server requires authentication, put the credentials as `username:password` into `/srv/etc/smtp.creds`. | `* * * * *` |
+| CRON_BACKUP | Backs up all users' data with `/srv/sogo-backup.sh` to `/srv/lib/sogo/backups` and removes old backups | `30 0 * * *` |
+| CRON_CLEANUP | Purges deleted events and contacts older than 30 days from the database (`sogo-tool cleanup 30 ALL`) | `0 1 * * 0` |
+| CRON_CLEAN_OPENID_SESSIONS | Removes expired OpenID sessions from the database (`sogo-tool clean-openid-sessions`). Only needed with OpenID authentication. | `0 * * * *` |
+| CRON_TMPWATCH | Removes temporary files (e.g. drafts) which have not been accessed for 23 days from `/var/spool/sogo`. **Enabled by default.** | `0 3 * * *` |
 
-```
-* * * * *      /usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1
-```
+Each variable accepts the following values:
+- not set, empty or `0`: the job is disabled. `CRON_TMPWATCH` is the only job enabled when not set, set it to `0` to disable it.
+- `1`: the job is enabled with its default schedule.
+- anything else: the job is enabled with this schedule, e.g. `CRON_BACKUP="0 2 * * *"`.
+  Besides the usual five fields, supercronic supports keywords like `@daily` and an optional seconds and year field.
 
-Crontabs of previous versions of this image contain the user column (`* * * * * sogo ...`).
-They are converted automatically during startup and a notice is logged. Jobs for any
-other user than `sogo` cannot be run and are disabled with a warning.
+The container stops with an error if a schedule is invalid. Executed jobs and their output are written to the container's log.
 
-If you intend to run SOGo in Kubernetes using multiple replicas, cron jobs should not run inside the container and thus inside each replica, but a dedicated Kubernetes Cron Job object
-should be created, overriding the image's entrypoint for executing the required functionality.
+Previous versions of this image read cron jobs from `/srv/etc/cron`. This file is no longer used. If it exists,
+a warning is logged for each job in it, which is not enabled with an environment variable, naming the variable
+and schedule to set. Custom jobs are not supported anymore.
+
+If you intend to run SOGo in Kubernetes using multiple replicas, jobs working on the database should not run inside each replica, but in a dedicated Kubernetes Cron Job object,
+overriding the image's entrypoint for executing the required functionality. Leave their `CRON_*` variables unset in the replicas.
+`CRON_TMPWATCH` cleans up the container's own spool directory and should stay enabled in each replica.
 An example can be found in [examples/kubernetes/cronjob-every-minute.yaml](examples/kubernetes/cronjob-every-minute.yaml).  
-Refer to the [Environment Variables](#environment-variables) section for documentation how to disable the integrated cron service.
+`DISABLE_CRON=1` disables all jobs, including `CRON_TMPWATCH`.
 
 ### Further Configuration
 
@@ -176,7 +184,8 @@ All other configuration options have no special considerations.
 | Environment varible   |  Mandatory? | Description   |
 | :------------------- | :----------- | :------------ |
 | DISABLE_MEMCACHED      | no | Disables the integrated `memcached` service |
-| DISABLE_CRON            | no | Disables the integrated cron service (supercronic) |
+| DISABLE_CRON            | no | Disables all cron jobs, see [Cron Jobs](#cron-jobs) |
+| CRON_*                  | no | Enables cron jobs, see [Cron Jobs](#cron-jobs) |
 | HTTP_PORT               | no | Port Apache listens on for HTTP, default `8080` |
 | HTTPS_PORT              | no | Port Apache listens on for HTTPS, default `8443` |
 
@@ -268,7 +277,6 @@ directory `/srv/lib/sogo` is not writable.
 ### Configuration Templates
 
   - [template/apache2/SOGo.conf.template](template/apache2/SOGo.conf.template)
-  - [template/cron/cron.template](template/cron/cron.template)
   - [template/sogo/sogo.conf.template](template/sogo/sogo.conf.template)
 
 

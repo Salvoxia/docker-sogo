@@ -15,7 +15,6 @@ fi
 # Missing files are created from templates. The container runs without root privileges, so this
 # fails if their directory is not writable for it, e.g. in volumes created by previous versions
 CREATED_FILES="/srv/etc/sogo.conf /srv/etc/apache-SOGo.conf /srv/sogo-backup.sh /srv/lib/sogo"
-[ "${DISABLE_CRON}" = "1" ] || CREATED_FILES="$CREATED_FILES /srv/etc/cron"
 for path in $CREATED_FILES; do
   [ -e "$path" ] && continue
   dir=$(dirname "$path")
@@ -28,8 +27,8 @@ done
 if [ -d /srv/lib/sogo ] && [ ! -w /srv/lib/sogo ]; then
   echo "WARNING: /srv/lib/sogo is not writable for $USER_INFO, backups and user defaults cannot be saved. Refer to the \"Permissions\" section of the README."
 fi
-# Start Cron
-/cron.sh
+# Start Cron, fails for invalid CRON_* environment variables
+/cron.sh || exit 1
 # Start Memcached
 /memcached.sh
 # Start Apache2

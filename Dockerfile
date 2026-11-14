@@ -110,11 +110,12 @@ EOT
 COPY template /template
 COPY apache2.sh /
 COPY cron.sh /
-COPY crontab-migrate.sh /
+COPY cron-legacy-check.sh /
+COPY sogo-tmpwatch.sh /
 COPY memcached.sh /
 COPY sogod.sh /
 COPY start.sh /
-RUN chmod +x apache2.sh cron.sh crontab-migrate.sh memcached.sh sogod.sh start.sh
+RUN chmod +x apache2.sh cron.sh cron-legacy-check.sh memcached.sh sogo-tmpwatch.sh sogod.sh start.sh
 
 
 # Interface the environment

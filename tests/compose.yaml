@@ -8,11 +8,18 @@ x-sogo: &sogo
     - ALL
   security_opt:
     - no-new-privileges:true
+  environment:
+    # Default schedule, explicit schedule and the job enabled by default, running every
+    # 2 seconds (seconds and year fields), see crontab.expected
+    CRON_EXPIRE_SESSIONS: "1"
+    CRON_BACKUP: "0 2 * * *"
+    CRON_TMPWATCH: "*/2 * * * * * *"
   volumes:
     # Only mount the configuration files, everything else the container writes
     # to /srv stays in the anonymous volume and is removed with the container
     - ./sogo.conf:/srv/etc/sogo.conf:ro
-    - ./cron:/srv/etc/cron:ro
+    # Crontab of previous versions, which should only cause warnings
+    - ./legacy-cron:/srv/etc/cron:ro
   ports:
     - "127.0.0.1::8080"
   healthcheck:

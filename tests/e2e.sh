@@ -3,7 +3,7 @@
 # Starts the image together with a PostgreSQL database (see compose.yaml), once with its default
 # user and once with any other UID, and checks that
 #   - the containers become healthy (Apache and sogod are up) without any privileges
-#   - all processes run as the expected UID and cron jobs are run
+#   - all processes run as the expected UID and cron jobs from CRON_* variables are run
 #   - Apache serves static content
 #   - a user can log in and SOGo creates the user's calendar in the database
 #
@@ -66,7 +66,7 @@ process_is_running() {
   in_container "$1" pgrep -x "$2" >/dev/null
 }
 
-crontab_was_converted() {
+crontab_was_generated() {
   in_container "$1" cat /var/run/sogo/crontab | diff -u crontab.expected -
 }
 
@@ -74,13 +74,30 @@ crontab_is_valid() {
   in_container "$1" supercronic -test /var/run/sogo/crontab >/dev/null 2>&1
 }
 
-# Wait up to 10 seconds for the supercronic job writing the UID it runs as
-cron_job_ran_as() {
+# The spool cleanup job runs every 2 seconds and removes files of the container's UID,
+# which have not been accessed for more than 23 days. Wait up to 10 seconds for it.
+cron_job_cleaned_spool() {
+  in_container "$1" sh -c 'mkdir -p /var/spool/sogo/e2e && touch -d "30 days ago" /var/spool/sogo/e2e/draft' || return 1
   for i in $(seq 10); do
-    [ "$(in_container "$1" cat /tmp/cron-test 2>/dev/null)" = "$2" ] && return 0
+    in_container "$1" test -e /var/spool/sogo/e2e/draft || return 0
     sleep 1
   done
   return 1
+}
+
+legacy_crontab_warnings() {
+  local log
+  log=$(compose logs --no-log-prefix "$1") || return 1
+  # Only jobs which are not enabled with CRON_* variables cause a warning, see legacy-cron
+  grep -qF 'set CRON_EALARMS_NOTIFY="*/5 * * * *" to run it' <<<"$log" &&
+    grep -qF 'custom job is not run anymore' <<<"$log" &&
+    ! grep -qE 'set CRON_(EXPIRE_SESSIONS|BACKUP|CLEANUP)=' <<<"$log"
+}
+
+invalid_schedule_is_rejected() {
+  local output
+  output=$(docker run --rm -e CRON_BACKUP="every day" "$SOGO_IMAGE" 2>&1) && return 1
+  grep -qF 'ERROR: CRON_BACKUP: invalid schedule "every day"' <<<"$output"
 }
 
 login_page_is_served() {
@@ -100,9 +117,10 @@ check_sogo() {
   check "[$service] all processes run as UID $uid" all_processes_run_as "$service" "$uid"
   check "[$service] sogod is running" process_is_running "$service" sogod
   check "[$service] supercronic is running" process_is_running "$service" supercronic
-  check "[$service] crontab with user column was converted" crontab_was_converted "$service"
-  check "[$service] converted crontab is valid" crontab_is_valid "$service"
-  check "[$service] cron jobs run as UID $uid" cron_job_ran_as "$service" "$uid"
+  check "[$service] crontab was generated from CRON_* variables" crontab_was_generated "$service"
+  check "[$service] generated crontab is valid" crontab_is_valid "$service"
+  check "[$service] cron job cleaned up the spool directory as UID $uid" cron_job_cleaned_spool "$service"
+  check "[$service] crontab of previous versions causes warnings" legacy_crontab_warnings "$service"
   check "[$service] static content is served" \
     curl -fsS -o /dev/null "$url/SOGo.woa/WebServerResources/js/Common.js"
   check "[$service] login page is served" login_page_is_served "$url"
@@ -118,6 +136,7 @@ check_sogo sogo 999
 # Any UID, which does not exist in the image
 check_sogo sogo-any-uid 12345
 check "personal calendar was created in the database" calendar_was_created
+check "invalid cron schedule is rejected" invalid_schedule_is_rejected
 
 if [ $FAILED -ne 0 ]; then
   echo "End-to-end test failed"

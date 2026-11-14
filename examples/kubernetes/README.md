@@ -9,7 +9,7 @@ The ConfigMap can also be created with a ConfigMapGenerator from actual files vi
 ## Deployment
 The [deployment.yaml](deployment.yaml) file contains the actual SOGo Deployment, specifying two replicas.  
 The [ConfigMap](#configmap) is mounted into the container to `/srv/etc`, so that the `apache-SOGo.conf` and `sogo.conf` files in the ConfigMap are available at `/srv/etc/apache-SOGo.conf` and `/srv/etc/sogo.conf`, respectively.  
-The internal cron service is disabled by setting the environment variable `DISABLE_CRON` to `1`.  
+No `CRON_*` environment variables are set, so only the spool cleanup (`CRON_TMPWATCH`) runs in each replica, the other jobs are run by the [CronJob](#cronjob).  
 The container runs without root privileges, the `securityContext` settings comply with the `restricted` [Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/).
 
 ## Service
@@ -19,5 +19,5 @@ The [service.yaml](service.yaml) file is a straight-forward service, mapping the
 The [ingress.yaml](ingress.yaml) file uses `traefik` as `ingressClassName`, the rest is as straight-forward as the [Service](#service).
 
 ## CronJob
-[cronjob-every-minute.yaml](cronjob-every-minute.yaml) showcases how SOGo cronjobs should be set up in an HA environment. The defined CronJob starts up a normal SOGo container, but overrides the entrypoint by appending calls to `sogo-tool` (as seen in [cron.template](../../template/cron/cron.template)), which run as user `sogo` like the container itself.  
+[cronjob-every-minute.yaml](cronjob-every-minute.yaml) showcases how SOGo cronjobs should be set up in an HA environment. The defined CronJob starts up a normal SOGo container, but overrides the entrypoint by appending calls to `sogo-tool` (see [Cron Jobs](../../README.md#cron-jobs) for the commands), which run as user `sogo` like the container itself.  
 Create one cronjob defintion for each required schedule.
