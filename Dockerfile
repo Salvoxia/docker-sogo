@@ -40,6 +40,14 @@ RUN <<EOT
 EOT
 
 #####################################################################
+# supercronic: cron replacement which runs without root privileges
+#####################################################################
+FROM golang:1.27.4-trixie@sha256:b54b2639de8c1bfe538ec5ffc45f29b1932235ac5f6d63c059853646677112d9 AS supercronic
+# renovate: datasource=go depName=github.com/aptible/supercronic
+ARG SUPERCRONIC_VERSION=v0.2.51
+RUN CGO_ENABLED=0 go install github.com/aptible/supercronic@${SUPERCRONIC_VERSION}
+
+#####################################################################
 # Runtime stage: only runtime libraries and the compiled SOGo
 #####################################################################
 FROM ${BASE_IMAGE}
@@ -48,51 +56,69 @@ LABEL maintainer="Salvoxia <salvoxia@blindfish.info>"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USEWATCHDOG=YES
 ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
+# Apache runs without root privileges, so it can only listen on ports above 1024
+ENV HTTP_PORT=8080
+ENV HTTPS_PORT=8443
 
 # Install runtime dependencies for SOGo and SOPE
 # Only the GNUstep base library is required, gnustep-base-runtime would pull in graphviz and friends
 RUN <<EOT
     set -eux
     apt update
-    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 liboath0t64 liblasso3t64 libcrypt1 zlib1g gettext-base apache2 apache2-utils cron memcached curl
+    apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 liboath0t64 liblasso3t64 libcrypt1 zlib1g gettext-base apache2 apache2-utils memcached curl
     apt clean
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 EOT
 
 COPY --from=builder /usr/local /usr/local
+COPY --from=supercronic /go/bin/supercronic /usr/local/bin/supercronic
 
 RUN <<EOT
     set -eux
     echo "register sogo library"
     echo "/usr/local/lib/sogo" > /etc/ld.so.conf.d/sogo.conf
     ldconfig
-    groupadd --system sogo && useradd --system --gid sogo sogo
-    usermod --home /srv/lib/sogo sogo
+    # Fixed IDs, which match the ones of previous versions, so existing volumes keep working
+    groupadd --system --gid 999 sogo
+    useradd --system --uid 999 --gid sogo --home-dir /srv/lib/sogo --no-create-home sogo
     echo "create directories and enforce permissions"
     install -o sogo -g sogo -m 755 -d /var/run/sogo
     install -o sogo -g sogo -m 755 -d /etc/sogo
     install -o sogo -g sogo -m 750 -d /var/spool/sogo
     install -o sogo -g sogo -m 750 -d /var/log/sogo
+    # /srv/etc is included, so Docker does not create it as root when single files are mounted into it
+    install -o sogo -g sogo -m 755 -d /srv /srv/etc
     # Activate required Apache modules
     a2enmod headers proxy proxy_http rewrite ssl
+    # Apache runs as user sogo: listen on ports above 1024, make its directories writable
+    # and replace the default site, which only serves port 80
+    a2dissite 000-default
+    sed -i -E 's/^(\s*Listen) 80$/\1 ${HTTP_PORT}/; s/^(\s*Listen) 443$/\1 ${HTTPS_PORT}/' /etc/apache2/ports.conf
+    sed -i -E 's/^(export APACHE_RUN_(USER|GROUP))=.*/\1=sogo/' /etc/apache2/envvars
+    install -o sogo -g sogo -m 755 -d /var/run/apache2 /var/lock/apache2
+    chown -R sogo:sogo /var/log/apache2
+    install -o sogo -g sogo -m 644 /dev/null /etc/apache2/conf-enabled/SOGo.conf
 EOT
 
 # SOGo daemons
 COPY template /template
 COPY apache2.sh /
 COPY cron.sh /
+COPY crontab-migrate.sh /
 COPY memcached.sh /
 COPY sogod.sh /
 COPY start.sh /
-RUN chmod +x apache2.sh cron.sh memcached.sh sogod.sh start.sh
+RUN chmod +x apache2.sh cron.sh crontab-migrate.sh memcached.sh sogod.sh start.sh
 
 
 # Interface the environment
 VOLUME /srv
-EXPOSE 80 443 8800
+EXPOSE 8080 8443 8800
 
 # /SOGo is proxied to sogod by Apache, so this fails if either of them is down
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl --fail --silent --output /dev/null http://localhost/SOGo || exit 1
+    CMD curl --fail --silent --output /dev/null "http://localhost:${HTTP_PORT}/SOGo" || exit 1
+
+USER 999:999
 
 ENTRYPOINT ["sh", "-c", "/start.sh && tail -f /var/log/sogo/sogo.log"]

@@ -13,7 +13,6 @@ if [ ! -f /srv/etc/sogo.conf ]; then
   chmod 0777 /srv/etc/sogo.conf
 fi
 cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
-chown -R sogo:sogo /etc/sogo/sogo.conf
 
 # Make backup script available
 if [ ! -f /srv/sogo-backup.sh ]; then
@@ -24,7 +23,6 @@ fi
 
 # Create SOGo home directory if missing
 mkdir -p /srv/lib/sogo
-chown -R sogo:sogo /srv/lib/sogo
 
 # Run SOGo in background
-LD_PRELOAD=$LD_PRELOAD exec su sogo -c '/usr/local/sbin/sogod -WOUseWatchDog $USEWATCHDOG -WOPort "127.0.0.1:20000" -WOPidFile /var/run/sogo/sogo.pid'
+exec /usr/local/sbin/sogod -WOUseWatchDog $USEWATCHDOG -WOPort "127.0.0.1:20000" -WOPidFile /var/run/sogo/sogo.pid

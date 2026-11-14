@@ -48,9 +48,29 @@ if ! compose up --detach --wait --wait-timeout 180 --quiet-pull; then
 fi
 echo "PASS: container is healthy"
 
-URL="http://$(compose port sogo 80)"
+URL="http://$(compose port sogo 8080)"
 
+# Run a command in the SOGo container
+sogo_exec() {
+  docker compose --project-name $PROJECT --file compose.yaml exec -T sogo "$@"
+}
+
+# Wait up to 10 seconds for a supercronic job writing the user name it runs as
+cron_job_ran_as_sogo() {
+  for i in $(seq 10); do
+    [ "$(sogo_exec cat /tmp/cron-test 2>/dev/null)" = "sogo" ] && return 0
+    sleep 1
+  done
+  return 1
+}
+
+check "no process runs as root" sh -c "! docker compose --project-name $PROJECT exec -T sogo ps -eo uid= | grep -qx ' *0'"
 check "sogod is running" sh -c "docker compose --project-name $PROJECT exec -T sogo pgrep -x sogod >/dev/null"
+check "supercronic is running" sh -c "docker compose --project-name $PROJECT exec -T sogo pgrep -x supercronic >/dev/null"
+check "crontab with user column was converted" \
+  sh -c "docker compose --project-name $PROJECT exec -T sogo cat /var/run/sogo/crontab | diff -u crontab.expected -"
+check "converted crontab is valid" sh -c "docker compose --project-name $PROJECT exec -T sogo supercronic -test /var/run/sogo/crontab >/dev/null 2>&1"
+check "cron jobs run as user sogo" cron_job_ran_as_sogo
 check "static content is served" \
   curl -fsS -o /dev/null "$URL/SOGo.woa/WebServerResources/js/Common.js"
 check "login page is served" \

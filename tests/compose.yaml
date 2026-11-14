@@ -19,12 +19,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # The image must work without any privileges
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      # Only mount the configuration file, everything else the container writes
+      # Only mount the configuration files, everything else the container writes
       # to /srv stays in the anonymous volume and is removed with the container
       - ./sogo.conf:/srv/etc/sogo.conf:ro
+      - ./cron:/srv/etc/cron:ro
     ports:
-      - "127.0.0.1::80"
+      - "127.0.0.1::8080"
     healthcheck:
       # Same check as in the image, just with a shorter interval
       interval: 2s
