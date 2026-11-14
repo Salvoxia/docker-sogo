@@ -27,6 +27,12 @@ done
 if [ -d /srv/lib/sogo ] && [ ! -w /srv/lib/sogo ]; then
   echo "WARNING: /srv/lib/sogo is not writable for $USER_INFO, backups and user defaults cannot be saved. Refer to the \"Permissions\" section of the README."
 fi
+# Previous versions created these files writable for everyone, the backup script is run by a cron job
+for path in /srv/etc/sogo.conf /srv/etc/apache-SOGo.conf /srv/sogo-backup.sh; do
+  if [ -n "$(find "$path" -maxdepth 0 -perm -o+w 2>/dev/null)" ]; then
+    echo "WARNING: $path is writable for everyone, restrict its permissions, e.g. chmod o-w $path. Refer to the \"Permissions\" section of the README."
+  fi
+done
 # Start Cron, fails for invalid CRON_* environment variables
 /cron.sh || exit 1
 # Start Memcached

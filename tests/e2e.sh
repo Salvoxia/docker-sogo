@@ -62,6 +62,30 @@ all_processes_run_as() {
   ! grep -qvx " *$2" <<<"$uids"
 }
 
+# Everything outside these locations must be read-only for the container's user
+WRITABLE_LOCATIONS="/tmp /var/tmp /run/lock /srv /etc/sogo /run/sogo /run/apache2 /var/log/apache2 /var/log/sogo /var/spool/sogo /etc/apache2/conf-enabled/SOGo.conf"
+
+# Prints all paths matching the find expression, skipping the kernel's file systems
+find_in_container() {
+  local service=$1; shift
+  in_container "$service" sh -c 'find / \( -path /proc -o -path /sys -o -path /dev \) -prune -o "$@" -print 2>/dev/null; true' find "$@"
+}
+
+only_expected_locations_are_writable() {
+  local pattern unexpected
+  pattern="^($(tr ' ' '|' <<<"$WRITABLE_LOCATIONS"))(/|$)"
+  # Symlinks are skipped, their targets are checked themselves
+  unexpected=$(find_in_container "$1" -writable ! -type l | grep -vE "$pattern") || true
+  [ -z "$unexpected" ] || { echo "Unexpected writable paths:"; echo "$unexpected"; return 1; }
+}
+
+nothing_is_world_writable() {
+  local found
+  # Sticky directories like /tmp are writable for everyone by design
+  found=$(find_in_container "$1" -perm -o+w ! -type l ! \( -type d -perm -1000 \))
+  [ -z "$found" ] || { echo "World-writable paths:"; echo "$found"; return 1; }
+}
+
 process_is_running() {
   in_container "$1" pgrep -x "$2" >/dev/null
 }
@@ -115,6 +139,8 @@ check_sogo() {
   local cookies="$COOKIES.$service"
   echo "Checking $service (UID $uid)"
   check "[$service] all processes run as UID $uid" all_processes_run_as "$service" "$uid"
+  check "[$service] only the expected locations are writable" only_expected_locations_are_writable "$service"
+  check "[$service] nothing is world-writable" nothing_is_world_writable "$service"
   check "[$service] sogod is running" process_is_running "$service" sogod
   check "[$service] supercronic is running" process_is_running "$service" supercronic
   check "[$service] crontab was generated from CRON_* variables" crontab_was_generated "$service"

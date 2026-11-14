@@ -69,7 +69,9 @@ RUN <<EOT
     apt update
     apt install -y --no-install-recommends ca-certificates libgnustep-base1.31 libobjc4 libxml2 libssl3t64 libldap2 libpq5 libmariadb3 libmemcached11t64 libcurl4t64 libsodium23 libzip5 libytnef0 liboath0t64 liblasso3t64 libcrypt1 zlib1g gettext-base apache2 apache2-utils memcached curl
     apt clean
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/debconf/tmp.ci
+    # Created group-writable during package installation, nothing besides the intended locations must be writable
+    chmod g-w /usr/share/man/man*
 EOT
 
 COPY --from=builder /usr/local /usr/local
@@ -107,15 +109,10 @@ RUN <<EOT
 EOT
 
 # SOGo daemons
+# Explicit permissions, COPY would keep the ones of the build context, which might be writable for the group
+COPY --chmod=755 apache2.sh cron.sh cron-legacy-check.sh memcached.sh sogo-tmpwatch.sh sogod.sh start.sh /
 COPY template /template
-COPY apache2.sh /
-COPY cron.sh /
-COPY cron-legacy-check.sh /
-COPY sogo-tmpwatch.sh /
-COPY memcached.sh /
-COPY sogod.sh /
-COPY start.sh /
-RUN chmod +x apache2.sh cron.sh cron-legacy-check.sh memcached.sh sogo-tmpwatch.sh sogod.sh start.sh
+RUN chmod -R go-w /template
 
 
 # Interface the environment
@@ -126,7 +123,8 @@ EXPOSE 8080 8443 8800
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl --fail --silent --output /dev/null "http://localhost:${HTTP_PORT}/SOGo" || exit 1
 
-# Group root (GID 0) has no privileges, but owns all writable locations
-USER 999:0
+# Any other UID must run with GID 0 (group root, which has no privileges), as group root
+# owns all writable locations
+USER 999:999
 
 ENTRYPOINT ["sh", "-c", "/start.sh && tail -f /var/log/sogo/sogo.log"]

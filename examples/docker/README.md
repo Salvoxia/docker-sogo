@@ -5,7 +5,7 @@ The database's data as well as SOGo's `/srv` folder are persistent volume mounts
 SOGo runs without root privileges as UID `999` (see [Permissions](../../README.md#permissions)), so create its folder with the matching owner before starting the stack:
 
 ```bash
-mkdir -p sogo/data && sudo chown 999:0 sogo/data
+mkdir -p sogo/data && sudo chown 999:999 sogo/data
 ```
 
 SOGo is available on port `8080`.

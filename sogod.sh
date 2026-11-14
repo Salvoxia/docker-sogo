@@ -10,7 +10,8 @@ export LD_PRELOAD=$LIBSSL_LOCATION
 if [ ! -f /srv/etc/sogo.conf ]; then
   mkdir -p /srv/etc/
   cp -L /template/sogo/sogo.conf.template /srv/etc/sogo.conf
-  chmod 0777 /srv/etc/sogo.conf
+  # Contains credentials, e.g. for the database
+  chmod 0640 /srv/etc/sogo.conf
 fi
 cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
 
@@ -18,7 +19,7 @@ cp -L /srv/etc/sogo.conf /etc/sogo/sogo.conf
 if [ ! -f /srv/sogo-backup.sh ]; then
   mkdir -p /srv
   cp -L /template/sogo/sogo-backup.sh /srv/sogo-backup.sh
-  chmod 0777 /srv/sogo-backup.sh
+  chmod 0755 /srv/sogo-backup.sh
 fi
 
 # Create SOGo home directory if missing
