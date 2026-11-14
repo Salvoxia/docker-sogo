@@ -1,24 +1,40 @@
 ---
+# Builds and tests the image for pull requests, pushes to main and tags.
+# Any other branch can be built manually via workflow_dispatch.
+# Publishes the image only for
+#   - tags: with the tag name and "latest"
+#   - pushes to main: with "edge"
 name: CI
 
 'on':
   pull_request:
   push:
+    branches:
+      - main
+    # paths-ignore does not apply to tags
     paths-ignore:
       - 'README.md'
+    tags:
+      - '[0-9]+.*'
+  workflow_dispatch:
+
+# Cancel outdated runs of a pull request, but never runs that publish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   docker:
     uses: ./.github/workflows/docker-build.yaml
     secrets: inherit
     with:
-      # Push only for default branch or dev branch
-      push: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || github.ref == format('refs/heads/{0}', 'dev') }}
+      # Push events are only triggered for main and tags
+      push: ${{ github.event_name == 'push' }}
       # generate Docker tags based on the following events/attributes
       tags: |
-        # set edge tag for default branch
-        type=edge,enable={{is_default_branch}}
-        # set dev tag for dev branch
-        type=raw,value=dev,enable=${{ github.ref == format('refs/heads/{0}', 'dev') }},branch=dev
-        # set build-test tag for any branch not dev or the default one
-        type=raw,value=build-test,enable=${{ github.ref != format('refs/heads/{0}', 'dev') && github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }},branch=dev
+        # edge tag for pushes to main
+        type=edge,branch=main
+        # tag name for tags
+        type=match,pattern=([0-9]+.*),group=1
+        # latest tag for tags
+        type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
