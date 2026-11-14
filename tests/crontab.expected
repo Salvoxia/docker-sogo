@@ -3,11 +3,11 @@
 # Format of previous versions with a user column
 * * * * *      /usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1
 @daily /srv/sogo-backup.sh
-# Disabled, jobs can only run as user sogo: 30 0 * * *     root   /usr/bin/true
+# Disabled, jobs can only run as the container's user: 30 0 * * *     root   /usr/bin/true
 #* * * * *      sogo	/usr/local/sbin/sogo-ealarms-notify > /dev/null 2>&1
 
 # Current format
 TEST_VARIABLE=value
 */10 * * * * /usr/local/sbin/sogo-ealarms-notify > /dev/null 2>&1
 # Every 2 seconds (seconds and year fields), used to verify that jobs are executed
-*/2 * * * * * * id -un > /tmp/cron-test
+*/2 * * * * * * id -u > /tmp/cron-test

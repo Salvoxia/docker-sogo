@@ -29,7 +29,7 @@ directory hierarchy and example configuration, simply run the container with the
 `/srv` volume already exposed or linked, for example using
 
 ```bash
-mkdir -p /srv/sogo && sudo chown 999:999 /srv/sogo
+mkdir -p /srv/sogo && sudo chown 999:0 /srv/sogo
 docker run -v /srv/sogo:/srv salvoxia/sogo
 ```
 
@@ -229,20 +229,38 @@ For both, refer to the [Docker Compose Example](examples/docker/docker-compose.y
 
 ### Permissions
 
-The container runs without root privileges as user `sogo` with UID and GID `999`. It works
-without any capabilities (`--cap-drop ALL`) and with `--security-opt no-new-privileges`.
+The container runs without root privileges, by default as user `sogo` with UID `999` and
+GID `0` (group `root`, which has no special privileges). It works without any capabilities
+(`--cap-drop ALL`) and with `--security-opt no-new-privileges`.
 
-`/srv` must be writable for UID `999`, so the container can create missing configuration
-files and store backups:
-- **Named volumes** created by Docker are initialized with the correct owner.
-- **Bind mounts** must be owned by UID `999`, e.g. `sudo chown -R 999:999 /srv/sogo`.
+#### Running with another UID
+
+The container can run with any UID, e.g. to match the owner of a bind mount, as long as its
+GID is `0`:
+
+```bash
+docker run --user 1000:0 ...
+```
+
+Docker uses GID `0` by default for UIDs that do not exist in the image, so `--user 1000`
+works as well. In Kubernetes, set `runAsUser` and `runAsGroup: 0` in the `securityContext`.
+Any other GID is rejected during startup with an error.
+
+#### Volumes
+
+`/srv` must be writable for the container's UID, so it can create missing configuration
+files and store backups. In the following commands, replace `999` with your UID if you
+run the container with another one:
+- **Named volumes** created by Docker are initialized for the default UID `999`.
+- **Bind mounts** must be owned by the container's UID, e.g. `sudo chown -R 999:0 /srv/sogo`.
 - **Volumes created by previous versions of this image**, which ran as root, contain files
-  owned by root. Change their owner once:
+  owned by root. The same applies when changing the UID of an existing volume. Change the
+  owner once:
   ```bash
-  docker run --rm --user 0 --volume <volume or path>:/srv --entrypoint chown salvoxia/sogo -R 999:999 /srv
+  docker run --rm --user 0 --volume <volume or path>:/srv --entrypoint chown salvoxia/sogo -R 999:0 /srv
   ```
 - **Kubernetes**: configuration mounted from a Config Map only needs to be readable. For
-  persistent volumes, set `fsGroup: 999` in the pod's `securityContext`.
+  persistent volumes, set `fsGroup: 0` in the pod's `securityContext`.
 
 During startup, the container logs a warning if files cannot be created or SOGo's home
 directory `/srv/lib/sogo` is not writable.

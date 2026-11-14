@@ -1,4 +1,24 @@
 # Environment for the end-to-end test, see e2e.sh
+
+# Settings shared by all SOGo containers
+x-sogo: &sogo
+  image: ${SOGO_IMAGE:?SOGO_IMAGE must be set to the image under test}
+  # The image must work without any privileges
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  volumes:
+    # Only mount the configuration files, everything else the container writes
+    # to /srv stays in the anonymous volume and is removed with the container
+    - ./sogo.conf:/srv/etc/sogo.conf:ro
+    - ./cron:/srv/etc/cron:ro
+  ports:
+    - "127.0.0.1::8080"
+  healthcheck:
+    # Same check as in the image, just with a shorter interval
+    interval: 2s
+
 services:
   db:
     image: postgres:17-alpine
@@ -14,23 +34,18 @@ services:
       interval: 1s
       retries: 60
 
+  # The image's default user
   sogo:
-    image: ${SOGO_IMAGE:?SOGO_IMAGE must be set to the image under test}
+    <<: *sogo
     depends_on:
       db:
         condition: service_healthy
-    # The image must work without any privileges
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      # Only mount the configuration files, everything else the container writes
-      # to /srv stays in the anonymous volume and is removed with the container
-      - ./sogo.conf:/srv/etc/sogo.conf:ro
-      - ./cron:/srv/etc/cron:ro
-    ports:
-      - "127.0.0.1::8080"
-    healthcheck:
-      # Same check as in the image, just with a shorter interval
-      interval: 2s
+
+  # Any UID, which does not exist in the image, with GID 0
+  sogo-any-uid:
+    <<: *sogo
+    user: "12345:0"
+    depends_on:
+      # SOGo creates its tables during startup, only one container should do so
+      sogo:
+        condition: service_healthy

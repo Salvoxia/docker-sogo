@@ -7,15 +7,17 @@
 # supercronic runs all jobs as the container's user and expects no user column:
 #   * * * * *  /usr/local/sbin/sogo-tool expire-sessions 60
 #
-# The user column is removed from jobs for the container's user. Jobs for any other user
-# cannot be run and are commented out. All other lines are kept as they are.
+# The user column is removed from jobs for user sogo or the container's user, which might be
+# any UID. Jobs for any other user cannot be run and are commented out. All other lines are
+# kept as they are.
 # Notices about converted or disabled jobs are printed to stderr.
 #
 # Usage: crontab-migrate.sh <crontab>
 set -eo pipefail
 
 CRONTAB=${1:?Usage: $0 <crontab>}
-CURRENT_USER=$(id -un)
+# The container can run with any UID, which might not have a user name
+CURRENT_USER=$(id -un 2>/dev/null) || CURRENT_USER=$(id -u)
 # "@daily user command"
 SPECIAL_SCHEDULE_REGEX='^([[:space:]]*@[[:alpha:]]+[[:space:]]+)([^[:space:]]+)[[:space:]]+(.*)$'
 # "* * * * * user command", the first five fields are the schedule
@@ -37,12 +39,12 @@ while IFS= read -r line || [ -n "$line" ]; do
   # otherwise it is the job's command
   if [ -z "$user" ] || ! getent passwd "$user" >/dev/null; then
     printf '%s\n' "$line"
-  elif [ "$user" = "$CURRENT_USER" ]; then
+  elif [ "$user" = "sogo" ] || [ "$user" = "$CURRENT_USER" ]; then
     printf '%s%s\n' "$schedule" "$command"
     converted=1
   else
-    printf '# Disabled, jobs can only run as user %s: %s\n' "$CURRENT_USER" "$line"
-    echo "WARNING: $CRONTAB: disabled job for user $user, jobs can only run as user $CURRENT_USER: $line" >&2
+    printf "# Disabled, jobs can only run as the container's user: %s\n" "$line"
+    echo "WARNING: $CRONTAB: disabled job for user $user, jobs can only run as the container's user ($CURRENT_USER): $line" >&2
   fi
 done < "$CRONTAB"
 

@@ -59,6 +59,8 @@ ENV LDAPTLS_CACERT=/etc/ssl/certs/ca-certificates.crt
 # Apache runs without root privileges, so it can only listen on ports above 1024
 ENV HTTP_PORT=8080
 ENV HTTPS_PORT=8443
+# The container can run with any UID, which might not exist in /etc/passwd
+ENV HOME=/srv/lib/sogo
 
 # Install runtime dependencies for SOGo and SOPE
 # Only the GNUstep base library is required, gnustep-base-runtime would pull in graphviz and friends
@@ -82,12 +84,14 @@ RUN <<EOT
     groupadd --system --gid 999 sogo
     useradd --system --uid 999 --gid sogo --home-dir /srv/lib/sogo --no-create-home sogo
     echo "create directories and enforce permissions"
-    install -o sogo -g sogo -m 755 -d /var/run/sogo
-    install -o sogo -g sogo -m 755 -d /etc/sogo
-    install -o sogo -g sogo -m 750 -d /var/spool/sogo
-    install -o sogo -g sogo -m 750 -d /var/log/sogo
+    # Writable locations are owned by user sogo and group root (GID 0) and are group-writable,
+    # so the container also works with any other UID, as long as its GID is 0
+    install -o sogo -g root -m 775 -d /var/run/sogo
+    install -o sogo -g root -m 775 -d /etc/sogo
+    install -o sogo -g root -m 770 -d /var/spool/sogo
+    install -o sogo -g root -m 770 -d /var/log/sogo
     # /srv/etc is included, so Docker does not create it as root when single files are mounted into it
-    install -o sogo -g sogo -m 755 -d /srv /srv/etc
+    install -o sogo -g root -m 775 -d /srv /srv/etc
     # Activate required Apache modules
     a2enmod headers proxy proxy_http rewrite ssl
     # Apache runs as user sogo: listen on ports above 1024, make its directories writable
@@ -95,9 +99,11 @@ RUN <<EOT
     a2dissite 000-default
     sed -i -E 's/^(\s*Listen) 80$/\1 ${HTTP_PORT}/; s/^(\s*Listen) 443$/\1 ${HTTPS_PORT}/' /etc/apache2/ports.conf
     sed -i -E 's/^(export APACHE_RUN_(USER|GROUP))=.*/\1=sogo/' /etc/apache2/envvars
-    install -o sogo -g sogo -m 755 -d /var/run/apache2 /var/lock/apache2
-    chown -R sogo:sogo /var/log/apache2
-    install -o sogo -g sogo -m 644 /dev/null /etc/apache2/conf-enabled/SOGo.conf
+    # apache2ctl creates the socks directory owned by APACHE_RUN_USER, which only works as root or sogo
+    install -o sogo -g root -m 775 -d /var/run/apache2 /var/run/apache2/socks /var/lock/apache2
+    chown -R sogo:root /var/log/apache2
+    chmod -R g=u /var/log/apache2
+    install -o sogo -g root -m 664 /dev/null /etc/apache2/conf-enabled/SOGo.conf
 EOT
 
 # SOGo daemons
@@ -119,6 +125,7 @@ EXPOSE 8080 8443 8800
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl --fail --silent --output /dev/null "http://localhost:${HTTP_PORT}/SOGo" || exit 1
 
-USER 999:999
+# Group root (GID 0) has no privileges, but owns all writable locations
+USER 999:0
 
 ENTRYPOINT ["sh", "-c", "/start.sh && tail -f /var/log/sogo/sogo.log"]

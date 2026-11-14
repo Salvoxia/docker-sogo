@@ -10,4 +10,4 @@
 TEST_VARIABLE=value
 */10 * * * * /usr/local/sbin/sogo-ealarms-notify > /dev/null 2>&1
 # Every 2 seconds (seconds and year fields), used to verify that jobs are executed
-*/2 * * * * * * id -un > /tmp/cron-test
+*/2 * * * * * * id -u > /tmp/cron-test
