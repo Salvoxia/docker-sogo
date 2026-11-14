@@ -1,0 +1,30 @@
+# Environment for the end-to-end test, see e2e.sh
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sogo
+      POSTGRES_PASSWORD: sogo
+      POSTGRES_DB: sogo
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      # Check via TCP: during initialization PostgreSQL only listens on its unix socket
+      test: ["CMD", "pg_isready", "-U", "sogo", "-h", "127.0.0.1"]
+      interval: 1s
+      retries: 60
+
+  sogo:
+    image: ${SOGO_IMAGE:?SOGO_IMAGE must be set to the image under test}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Only mount the configuration file, everything else the container writes
+      # to /srv stays in the anonymous volume and is removed with the container
+      - ./sogo.conf:/srv/etc/sogo.conf:ro
+    ports:
+      - "127.0.0.1::80"
+    healthcheck:
+      # Same check as in the image, just with a shorter interval
+      interval: 2s
