@@ -29,8 +29,11 @@ directory hierarchy and example configuration, simply run the container with the
 `/srv` volume already exposed or linked, for example using
 
 ```bash
+mkdir -p /srv/sogo && sudo chown 999:999 /srv/sogo
 docker run -v /srv/sogo:/srv salvoxia/sogo
 ```
+
+The container runs without root privileges, so the directory must be writable for it (see [Permissions](#permissions)).
 
 As soon as the files are created, stop the image again. You will now find
 following files:
@@ -94,11 +97,16 @@ documentation.
 ### Apache and HTTPs
 
 As already given above, the default Apache configuration is already available
-under `etc/apache2/SOGo.conf`. The container exposes HTTP (80), HTTPS (443)
+under `etc/apache2/SOGo.conf`. The container exposes HTTP (8080), HTTPS (8443)
 and 8800, which is used by Apple devices, and 20000, the default port the SOGo
 daemon listens on. You can either directly include the certificates within the
 container, or use an external proxy for this. Make sure to only map the required
 ports to not unnecessarily expose daemons.
+
+Apache runs without root privileges and can therefore only listen on ports above 1024.
+The ports can be changed with the environment variables `HTTP_PORT` and `HTTPS_PORT`.
+If you define virtual hosts in your Apache configuration, use these variables instead of
+fixed ports, e.g. `<VirtualHost *:${HTTPS_PORT}>`.
 
 You need to adjust the `<Proxy ...>` section and include port, server name and
 url to match your setup.
@@ -125,10 +133,22 @@ ProxyPass /Microsoft-Server-ActiveSync \
 ### Cron-Jobs: Backup, Session Timeout, E-Mail Reminders, ...
 
 SOGo heavily relies on cron jobs for different purposes. The image provides
-SOGo's original cron file as `./etc/cron/cron`. Uncomment sections as need.
+SOGo's original cron file as `./etc/cron`. Uncomment sections as need.
 The backup script is available and made executable at the
 predefined location `/srv/sogo-backup.sh`, so backup is fully
 functional immediately after uncommenting the respective cron job.
+
+The jobs are run by [supercronic](https://github.com/aptible/supercronic) as user `sogo`,
+their output is written to the container's log. Unlike files in `/etc/cron.d`, the
+crontab has no user column:
+
+```
+* * * * *      /usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1
+```
+
+Crontabs of previous versions of this image contain the user column (`* * * * * sogo ...`).
+They are converted automatically during startup and a notice is logged. Jobs for any
+other user than `sogo` cannot be run and are disabled with a warning.
 
 If you intend to run SOGo in Kubernetes using multiple replicas, cron jobs should not run inside the container and thus inside each replica, but a dedicated Kubernetes Cron Job object
 should be created, overriding the image's entrypoint for executing the required functionality.
@@ -156,7 +176,9 @@ All other configuration options have no special considerations.
 | Environment varible   |  Mandatory? | Description   |
 | :------------------- | :----------- | :------------ |
 | DISABLE_MEMCACHED      | no | Disables the integrated `memcached` service |
-| DISABLE_CRON            | no | Disables the integrated `cron` service |
+| DISABLE_CRON            | no | Disables the integrated cron service (supercronic) |
+| HTTP_PORT               | no | Port Apache listens on for HTTP, default `8080` |
+| HTTPS_PORT              | no | Port Apache listens on for HTTPS, default `8443` |
 
 ## Running a Container
 
@@ -167,7 +189,7 @@ permanent. An example run command, which links to a database container named
 ```bash
 docker run -d \
   --name='sogo' \
-  --publish='127.0.0.1:80:80' \
+  --publish='127.0.0.1:80:8080' \
   --link='sogo-postgresql:db' \
   --volume='/srv/sogo:/srv' \
   salvoxia/sogo:latest
@@ -192,7 +214,8 @@ corporate proxy for example.
 ### Health and liveness check
 
 For Health Check, you can check "HTTP request returns a successful status (2xx
-or 3xx)" with a request path to "/SOGo" on port 80.
+or 3xx)" with a request path to "/SOGo" on port 8080.
+The image contains a Docker health check doing exactly this.
 For examples refer to the [Docker Compose Example](examples/docker/docker-compose.yml) and [Kubernetes Exmaple](examples/kubernetes/deployment.yaml), respectively.
 
 ### Volumes
@@ -203,6 +226,26 @@ The container will initialize the configuration files there as well as place bac
 For Kubernetes, configuration files should be mounted using a Config Map into `/srv/etc`. When deployed using Kubernetes, backups are likely covered by backups of the external database, so no persistent volumes are necessary.
 
 For both, refer to the [Docker Compose Example](examples/docker/docker-compose.yml) and [Kubernetes Exmaple](examples/kubernetes/deployment.yaml), respectively.
+
+### Permissions
+
+The container runs without root privileges as user `sogo` with UID and GID `999`. It works
+without any capabilities (`--cap-drop ALL`) and with `--security-opt no-new-privileges`.
+
+`/srv` must be writable for UID `999`, so the container can create missing configuration
+files and store backups:
+- **Named volumes** created by Docker are initialized with the correct owner.
+- **Bind mounts** must be owned by UID `999`, e.g. `sudo chown -R 999:999 /srv/sogo`.
+- **Volumes created by previous versions of this image**, which ran as root, contain files
+  owned by root. Change their owner once:
+  ```bash
+  docker run --rm --user 0 --volume <volume or path>:/srv --entrypoint chown salvoxia/sogo -R 999:999 /srv
+  ```
+- **Kubernetes**: configuration mounted from a Config Map only needs to be readable. For
+  persistent volumes, set `fsGroup: 999` in the pod's `securityContext`.
+
+During startup, the container logs a warning if files cannot be created or SOGo's home
+directory `/srv/lib/sogo` is not writable.
 
 ### Configuration Templates
 
