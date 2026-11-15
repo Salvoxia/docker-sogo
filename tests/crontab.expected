@@ -1,0 +1,4 @@
+# Generated from CRON_* environment variables during startup
+* * * * * /usr/local/sbin/sogo-tool expire-sessions 60 > /dev/null 2>&1
+0 2 * * * /srv/sogo-backup.sh
+*/2 * * * * * * /sogo-tmpwatch.sh

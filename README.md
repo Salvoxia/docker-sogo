@@ -29,8 +29,11 @@ directory hierarchy and example configuration, simply run the container with the
 `/srv` volume already exposed or linked, for example using
 
 ```bash
+mkdir -p /srv/sogo && sudo chown 999:999 /srv/sogo
 docker run -v /srv/sogo:/srv salvoxia/sogo
 ```
+
+The container runs without root privileges, so the directory must be writable for it (see [Permissions](#permissions)).
 
 As soon as the files are created, stop the image again. You will now find
 following files:
@@ -39,7 +42,6 @@ following files:
 .
 ├── etc
 │   ├── apache-SOGo.conf
-|   ├── cron
 │   └── sogo.conf
 └── lib
     └── sogo
@@ -94,11 +96,16 @@ documentation.
 ### Apache and HTTPs
 
 As already given above, the default Apache configuration is already available
-under `etc/apache2/SOGo.conf`. The container exposes HTTP (80), HTTPS (443)
+under `etc/apache2/SOGo.conf`. The container exposes HTTP (8080), HTTPS (8443)
 and 8800, which is used by Apple devices, and 20000, the default port the SOGo
 daemon listens on. You can either directly include the certificates within the
 container, or use an external proxy for this. Make sure to only map the required
 ports to not unnecessarily expose daemons.
+
+Apache runs without root privileges and can therefore only listen on ports above 1024.
+The ports can be changed with the environment variables `HTTP_PORT` and `HTTPS_PORT`.
+If you define virtual hosts in your Apache configuration, use these variables instead of
+fixed ports, e.g. `<VirtualHost *:${HTTPS_PORT}>`.
 
 You need to adjust the `<Proxy ...>` section and include port, server name and
 url to match your setup.
@@ -122,18 +129,39 @@ ProxyPass /Microsoft-Server-ActiveSync \
   retry=60 connectiontimeout=5 timeout=360
 ```
 
-### Cron-Jobs: Backup, Session Timeout, E-Mail Reminders, ...
+### Cron Jobs
 
-SOGo heavily relies on cron jobs for different purposes. The image provides
-SOGo's original cron file as `./etc/cron/cron`. Uncomment sections as need.
-The backup script is available and made executable at the
-predefined location `/srv/sogo-backup.sh`, so backup is fully
-functional immediately after uncommenting the respective cron job.
+SOGo relies on periodic jobs for backups, session timeouts, e-mail reminders and more.
+They are run by [supercronic](https://github.com/aptible/supercronic) with the container's
+user and enabled with environment variables:
 
-If you intend to run SOGo in Kubernetes using multiple replicas, cron jobs should not run inside the container and thus inside each replica, but a dedicated Kubernetes Cron Job object
-should be created, overriding the image's entrypoint for executing the required functionality.
+| Environment variable | Job | Default schedule |
+| :------------------- | :-- | :--------------- |
+| CRON_UPDATE_AUTOREPLY | Activates and expires vacation messages (`sogo-tool update-autoreply`). Only needed if your Sieve server does not support the `date` extension. Requires the Sieve admin credentials as `username:password` in `/srv/etc/sieve.creds`. | `*/5 * * * *` |
+| CRON_EXPIRE_SESSIONS | Expires sessions without activity for 60 minutes (`sogo-tool expire-sessions 60`) | `* * * * *` |
+| CRON_EALARMS_NOTIFY | Sends e-mail reminders (`sogo-ealarms-notify`). If the SMTP server requires authentication, put the credentials as `username:password` into `/srv/etc/smtp.creds`. | `* * * * *` |
+| CRON_BACKUP | Backs up all users' data with `/srv/sogo-backup.sh` to `/srv/lib/sogo/backups` and removes old backups | `30 0 * * *` |
+| CRON_CLEANUP | Purges deleted events and contacts older than 30 days from the database (`sogo-tool cleanup 30 ALL`) | `0 1 * * 0` |
+| CRON_CLEAN_OPENID_SESSIONS | Removes expired OpenID sessions from the database (`sogo-tool clean-openid-sessions`). Only needed with OpenID authentication. | `0 * * * *` |
+| CRON_TMPWATCH | Removes temporary files (e.g. drafts) which have not been accessed for 23 days from `/var/spool/sogo`. **Enabled by default.** | `0 3 * * *` |
+
+Each variable accepts the following values:
+- not set, empty or `0`: the job is disabled. `CRON_TMPWATCH` is the only job enabled when not set, set it to `0` to disable it.
+- `1`: the job is enabled with its default schedule.
+- anything else: the job is enabled with this schedule, e.g. `CRON_BACKUP="0 2 * * *"`.
+  Besides the usual five fields, supercronic supports keywords like `@daily` and an optional seconds and year field.
+
+The container stops with an error if a schedule is invalid. Executed jobs and their output are written to the container's log.
+
+Previous versions of this image read cron jobs from `/srv/etc/cron`. This file is no longer used. If it exists,
+a warning is logged for each job in it, which is not enabled with an environment variable, naming the variable
+and schedule to set. Custom jobs are not supported anymore.
+
+If you intend to run SOGo in Kubernetes using multiple replicas, jobs working on the database should not run inside each replica, but in a dedicated Kubernetes Cron Job object,
+overriding the image's entrypoint for executing the required functionality. Leave their `CRON_*` variables unset in the replicas.
+`CRON_TMPWATCH` cleans up the container's own spool directory and should stay enabled in each replica.
 An example can be found in [examples/kubernetes/cronjob-every-minute.yaml](examples/kubernetes/cronjob-every-minute.yaml).  
-Refer to the [Environment Variables](#environment-variables) section for documentation how to disable the integrated cron service.
+Set `CRON_TMPWATCH=0` to run no jobs at all.
 
 ### Further Configuration
 
@@ -156,7 +184,9 @@ All other configuration options have no special considerations.
 | Environment varible   |  Mandatory? | Description   |
 | :------------------- | :----------- | :------------ |
 | DISABLE_MEMCACHED      | no | Disables the integrated `memcached` service |
-| DISABLE_CRON            | no | Disables the integrated `cron` service |
+| CRON_*                  | no | Enables cron jobs, see [Cron Jobs](#cron-jobs) |
+| HTTP_PORT               | no | Port Apache listens on for HTTP, default `8080` |
+| HTTPS_PORT              | no | Port Apache listens on for HTTPS, default `8443` |
 
 ## Running a Container
 
@@ -167,7 +197,7 @@ permanent. An example run command, which links to a database container named
 ```bash
 docker run -d \
   --name='sogo' \
-  --publish='127.0.0.1:80:80' \
+  --publish='127.0.0.1:80:8080' \
   --link='sogo-postgresql:db' \
   --volume='/srv/sogo:/srv' \
   salvoxia/sogo:latest
@@ -192,7 +222,8 @@ corporate proxy for example.
 ### Health and liveness check
 
 For Health Check, you can check "HTTP request returns a successful status (2xx
-or 3xx)" with a request path to "/SOGo" on port 80.
+or 3xx)" with a request path to "/SOGo" on port 8080.
+The image contains a Docker health check doing exactly this.
 For examples refer to the [Docker Compose Example](examples/docker/docker-compose.yml) and [Kubernetes Exmaple](examples/kubernetes/deployment.yaml), respectively.
 
 ### Volumes
@@ -204,10 +235,57 @@ For Kubernetes, configuration files should be mounted using a Config Map into `/
 
 For both, refer to the [Docker Compose Example](examples/docker/docker-compose.yml) and [Kubernetes Exmaple](examples/kubernetes/deployment.yaml), respectively.
 
+### Permissions
+
+The container runs without root privileges, by default as user `sogo` with UID and GID `999`.
+It works without any capabilities (`--cap-drop ALL`) and with `--security-opt no-new-privileges`.
+
+#### Running with another UID
+
+The container can run with any UID, e.g. to match the owner of a bind mount, as long as its
+GID is `0`:
+
+```bash
+docker run --user 1000:0 ...
+```
+
+All locations the container writes to belong to group `0` (`root`) and are writable for it. The
+group has no special privileges, everything else in the image is read-only for it. Docker uses
+GID `0` by default for UIDs that do not exist in the image, so `--user 1000` works as well. In
+Kubernetes, set `runAsUser` and `runAsGroup: 0` in the `securityContext`. Any other GID is
+rejected during startup with an error.
+
+#### Volumes
+
+`/srv` must be writable for the container's UID, so it can create missing configuration
+files and store backups:
+- **Named volumes** created by Docker are initialized for the default UID `999`.
+- **Bind mounts** must be owned by the container's UID, e.g. `sudo chown -R 999:999 /srv/sogo`,
+  or `sudo chown -R 1000:0 /srv/sogo` when running with `--user 1000:0`.
+- **Kubernetes**: configuration mounted from a Config Map only needs to be readable. For
+  persistent volumes, set `fsGroup` in the pod's `securityContext` to the container's GID
+  (`999` by default).
+
+The container creates `sogo.conf`, which contains credentials, readable only for its user and
+group. Keep it that way if you edit it.
+
+**Volumes created by previous versions of this image** contain files owned by root, which are
+writable for everyone. Change their owner and permissions once (replace `999:999` with your
+UID and `0` if you run the container with another UID):
+
+```bash
+docker run --rm --user 0 --volume <volume or path>:/srv --entrypoint sh salvoxia/sogo \
+  -c 'chown -R 999:999 /srv && chmod -R o-w /srv && chmod 0640 /srv/etc/sogo.conf'
+```
+
+The same applies when changing the UID of an existing volume (`chown` only).
+
+During startup, the container logs a warning if files cannot be created, SOGo's home
+directory `/srv/lib/sogo` is not writable or configuration files are writable for everyone.
+
 ### Configuration Templates
 
   - [template/apache2/SOGo.conf.template](template/apache2/SOGo.conf.template)
-  - [template/cron/cron.template](template/cron/cron.template)
   - [template/sogo/sogo.conf.template](template/sogo/sogo.conf.template)
 
 

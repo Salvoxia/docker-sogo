@@ -14,12 +14,18 @@ spec:
         app.kubernetes.io/component: app
         app.kubernetes.io/name: sogo
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: sogo
         image: salvoxia/sogo
-        env:
-          - name: DISABLE_CRON
-            value: "1"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -39,7 +45,7 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           name: http
           protocol: TCP
         volumeMounts:

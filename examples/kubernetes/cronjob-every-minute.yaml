@@ -8,20 +8,30 @@ spec:
     spec:      
       template:
         spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: sogo
               image: salvoxia/sogo
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
               command:
                 - sh
               args:
                 - -c
-                # Run Session expiry and Email Alarms jobs as user 'sogo' after starting up the daemon
-                - /start.sh && su sogo -c '/usr/local/sbin/sogo-tool expire-sessions 60 && /usr/local/sbin/sogo-ealarms-notify'
+                # Run Session expiry and Email Alarms jobs after starting up the daemon, the container runs as user 'sogo'
+                - /start.sh && /usr/local/sbin/sogo-tool expire-sessions 60 && /usr/local/sbin/sogo-ealarms-notify
               env:
-                - name: DISABLE_CRON
-                  value: "1"
+                # Only the commands above are run, no cron jobs
+                - name: CRON_TMPWATCH
+                  value: "0"
               ports:
-              - containerPort: 80
+              - containerPort: 8080
                 name: http
                 protocol: TCP
               resources: {}
