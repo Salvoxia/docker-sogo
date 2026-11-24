@@ -5,7 +5,7 @@ ARG BASE_IMAGE=debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a
 #####################################################################
 FROM ${BASE_IMAGE} AS builder
 # renovate: datasource=github-tags depName=Alinto/sogo extractVersion=^SOGo-(?<version>.+)$
-ENV SOGO_VERSION=5.12.13
+ENV SOGO_VERSION=5.12.14
 ENV SOPE_VERSION=${SOGO_VERSION}
 # Attention when chaning the source URLs!
 # The script below assumes the source zip files to contain a
