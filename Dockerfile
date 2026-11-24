@@ -4,6 +4,7 @@ ARG BASE_IMAGE=debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a
 # Build stage: compile SOPE and SOGo into /usr/local
 #####################################################################
 FROM ${BASE_IMAGE} AS builder
+# renovate: datasource=github-tags depName=Alinto/sogo extractVersion=^SOGo-(?<version>.+)$
 ENV SOGO_VERSION=5.12.13
 ENV SOPE_VERSION=${SOGO_VERSION}
 # Attention when chaning the source URLs!

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "docker:pinDigests"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Versions annotated with a '# renovate:' comment in the Dockerfile (SOGo, supercronic)",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s+(?:ENV|ARG) \\w+=(?<currentValue>\\S+)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "SOGo and SOPE are released together under the same version",
+      "matchDepNames": ["Alinto/sogo"],
+      "commitMessageTopic": "SOGo"
+    }
+  ]
+}
