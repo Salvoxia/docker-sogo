@@ -43,7 +43,7 @@ EOT
 #####################################################################
 # supercronic: cron replacement which runs without root privileges
 #####################################################################
-FROM golang:1.27.4-trixie@sha256:0f82c58710c405cc012da2fbd2b04bde9ced20392a89f66062822d711d7d6b4b AS supercronic
+FROM golang:1.27.4-trixie@sha256:430985542100b871e108ccc00e8dcc5eef08ca14ee5825e98ebf563d8ffec4ee AS supercronic
 # renovate: datasource=go depName=github.com/aptible/supercronic
 ARG SUPERCRONIC_VERSION=v0.2.51
 RUN CGO_ENABLED=0 go install github.com/aptible/supercronic@${SUPERCRONIC_VERSION}
