@@ -19,7 +19,8 @@
     {
       "description": "SOGo and SOPE are released together under the same version",
       "matchDepNames": ["Alinto/sogo"],
-      "commitMessageTopic": "SOGo"
+      "commitMessageTopic": "SOGo",
+      "prPriority": 10
     }
   ]
 }
